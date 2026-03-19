@@ -1,12 +1,16 @@
 // Socket.io client wrapper
-// When hosted on Railway, set SOCKET_URL to your Railway URL
-// For local dev, falls back to current origin
 
 class GameSocket {
   constructor() {
     this.socket = null;
     this.connected = false;
     this.handlers = {};
+  }
+
+  useSocket(existingSocket) {
+    this.socket = existingSocket;
+    this.connected = existingSocket.connected;
+    this._bindEvents();
   }
 
   connect(serverUrl) {
@@ -16,32 +20,27 @@ class GameSocket {
       reconnectionAttempts: 5,
       reconnectionDelay: 1000
     });
-
     this.socket.on('connect', () => {
       this.connected = true;
-      console.log('[Socket] Connected:', this.socket.id);
       this._emit('connect');
     });
-
     this.socket.on('disconnect', (reason) => {
       this.connected = false;
-      console.log('[Socket] Disconnected:', reason);
       this._emit('disconnect', reason);
     });
-
     this.socket.on('connect_error', (err) => {
-      console.error('[Socket] Connection error:', err.message);
       this._emit('connect_error', err);
     });
+    this._bindEvents();
+  }
 
-    // Forward all game events
+  _bindEvents() {
     const events = [
       'joined', 'playerJoined', 'playerLeft', 'gameState',
       'playerKilled', 'hitConfirm', 'bulletImpact', 'damaged',
       'respawn', 'ammoUpdate', 'reloadStart', 'reloadEnd',
-      'scoreUpdate', 'weaponSwitched'
+      'scoreUpdate', 'weaponSwitched', 'roomsList', 'joinError'
     ];
-
     for (const event of events) {
       this.socket.on(event, (data) => this._emit(event, data));
     }
@@ -58,10 +57,20 @@ class GameSocket {
     }
   }
 
-  join(name) {
-    this.socket.emit('join', { name });
+  // Lobby events
+  listRooms() {
+    this.socket.emit('listRooms');
   }
 
+  createRoom(data) {
+    this.socket.emit('createRoom', data);
+  }
+
+  joinRoom(data) {
+    this.socket.emit('joinRoom', data);
+  }
+
+  // Game events
   sendInput(input) {
     this.socket.emit('input', input);
   }
