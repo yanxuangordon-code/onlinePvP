@@ -69,11 +69,14 @@ class FPSGame {
   // ---- Renderer ----
 
   _initRenderer() {
-    this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.outputEncoding = THREE.sRGBEncoding;
     document.getElementById('gameCanvas').appendChild(this.renderer.domElement);
 
     window.addEventListener('resize', () => {
@@ -97,22 +100,23 @@ class FPSGame {
     const rifleGroup = new THREE.Group();
 
     const bodyGeo = new THREE.BoxGeometry(0.08, 0.08, 0.45);
-    const bodyMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.4, metalness: 0.8 });
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     rifleGroup.add(body);
 
-    const barrelGeo = new THREE.BoxGeometry(0.03, 0.03, 0.25);
-    const barrel = new THREE.Mesh(barrelGeo, bodyMat);
-    barrel.position.set(0, 0.025, -0.3);
+    const barrelGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.28, 8);
+    const barrel = new THREE.Mesh(barrelGeo, new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.3, metalness: 0.9 }));
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, 0.025, -0.32);
     rifleGroup.add(barrel);
 
     const stockGeo = new THREE.BoxGeometry(0.06, 0.1, 0.15);
-    const stock = new THREE.Mesh(stockGeo, new THREE.MeshLambertMaterial({ color: 0x5d3a1a }));
+    const stock = new THREE.Mesh(stockGeo, new THREE.MeshStandardMaterial({ color: 0x4a2a0e, roughness: 0.9, metalness: 0.0 }));
     stock.position.set(0, -0.02, 0.2);
     rifleGroup.add(stock);
 
     const magGeo = new THREE.BoxGeometry(0.04, 0.12, 0.06);
-    const mag = new THREE.Mesh(magGeo, new THREE.MeshLambertMaterial({ color: 0x222222 }));
+    const mag = new THREE.Mesh(magGeo, new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.5, metalness: 0.6 }));
     mag.position.set(0, -0.09, 0.02);
     rifleGroup.add(mag);
 
@@ -124,18 +128,17 @@ class FPSGame {
     const pistolGroup = new THREE.Group();
     const pBody = new THREE.Mesh(
       new THREE.BoxGeometry(0.055, 0.12, 0.2),
-      new THREE.MeshLambertMaterial({ color: 0x444444 })
+      new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.4, metalness: 0.8 })
     );
     pistolGroup.add(pBody);
-    const pBarrel = new THREE.Mesh(
-      new THREE.BoxGeometry(0.03, 0.03, 0.12),
-      bodyMat
-    );
-    pBarrel.position.set(0, 0.04, -0.14);
+    const pBarrelGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.14, 8);
+    const pBarrel = new THREE.Mesh(pBarrelGeo, new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.3, metalness: 0.9 }));
+    pBarrel.rotation.x = Math.PI / 2;
+    pBarrel.position.set(0, 0.04, -0.15);
     pistolGroup.add(pBarrel);
     const pGrip = new THREE.Mesh(
       new THREE.BoxGeometry(0.05, 0.1, 0.07),
-      new THREE.MeshLambertMaterial({ color: 0x5d3a1a })
+      new THREE.MeshStandardMaterial({ color: 0x3a1e08, roughness: 0.9, metalness: 0.0 })
     );
     pGrip.position.set(0, -0.1, 0.04);
     pistolGroup.add(pGrip);
@@ -150,16 +153,22 @@ class FPSGame {
 
   _initScene() {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x87ceeb);
-    this.scene.fog = new THREE.Fog(0x87ceeb, 40, 120);
+    this.scene.background = new THREE.Color(0x6ab0d4);
+    this.scene.fog = new THREE.FogExp2(0x6ab0d4, 0.012);
   }
 
   _initLights() {
-    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    // Hemisphere light: sky blue above, warm ground below
+    const hemi = new THREE.HemisphereLight(0x87ceeb, 0x8b7355, 0.5);
+    this.scene.add(hemi);
+
+    // Ambient fill
+    const ambient = new THREE.AmbientLight(0xfff5e0, 0.4);
     this.scene.add(ambient);
 
-    const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-    sun.position.set(20, 50, 20);
+    // Sun — warm directional light
+    const sun = new THREE.DirectionalLight(0xfff4d6, 1.2);
+    sun.position.set(30, 60, 20);
     sun.castShadow = true;
     sun.shadow.mapSize.width = 2048;
     sun.shadow.mapSize.height = 2048;
@@ -169,7 +178,13 @@ class FPSGame {
     sun.shadow.camera.right = 60;
     sun.shadow.camera.top = 60;
     sun.shadow.camera.bottom = -60;
+    sun.shadow.bias = -0.001;
     this.scene.add(sun);
+
+    // Soft fill from opposite side
+    const fill = new THREE.DirectionalLight(0x9ab8d4, 0.3);
+    fill.position.set(-20, 20, -20);
+    this.scene.add(fill);
   }
 
   _buildMap() {
@@ -178,21 +193,41 @@ class FPSGame {
     // Textures (procedural)
     function makeTexture(color1, color2, size, pattern) {
       const canvas = document.createElement('canvas');
-      canvas.width = 64; canvas.height = 64;
+      canvas.width = 128; canvas.height = 128;
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = color1;
-      ctx.fillRect(0, 0, 64, 64);
-      ctx.fillStyle = color2;
+      ctx.fillRect(0, 0, 128, 128);
       if (pattern === 'grid') {
         ctx.strokeStyle = color2;
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 64; i += 16) {
-          ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 64); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(64, i); ctx.stroke();
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i <= 128; i += 32) {
+          ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 128); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(128, i); ctx.stroke();
+        }
+        // subtle noise
+        for (let px = 0; px < 128; px += 2) {
+          for (let py = 0; py < 128; py += 2) {
+            const v = (Math.random() * 0.06 - 0.03);
+            ctx.fillStyle = `rgba(${v > 0 ? 255 : 0},${v > 0 ? 255 : 0},${v > 0 ? 255 : 0},${Math.abs(v)})`;
+            ctx.fillRect(px, py, 2, 2);
+          }
         }
       } else if (pattern === 'checker') {
         for (let x = 0; x < 4; x++) for (let y = 0; y < 4; y++) {
-          if ((x + y) % 2 === 0) ctx.fillRect(x * 16, y * 16, 16, 16);
+          if ((x + y) % 2 === 0) {
+            ctx.fillStyle = color2;
+            ctx.fillRect(x * 32, y * 32, 32, 32);
+          }
+        }
+      } else if (pattern === 'brick') {
+        ctx.fillStyle = color2;
+        const bw = 42, bh = 20;
+        for (let row = 0; row < 7; row++) {
+          const offset = (row % 2) * (bw / 2);
+          for (let col = -1; col < 4; col++) {
+            const x = col * bw + offset, y = row * bh;
+            ctx.fillRect(x + 2, y + 2, bw - 4, bh - 4);
+          }
         }
       }
       const tex = new THREE.CanvasTexture(canvas);
@@ -201,14 +236,19 @@ class FPSGame {
       return tex;
     }
 
-    const floorTex = makeTexture('#888888', '#777777', 20, 'grid');
-    const wallTex = makeTexture('#a0a0a0', '#909090', 4, 'grid');
+    const floorTex = makeTexture('#7a7a7a', '#666666', 20, 'grid');
+    const wallTex = makeTexture('#b0a898', '#9a9088', 4, 'brick');
     const ctTex = makeTexture('#1a3a5c', '#1e4a7c', 8, 'grid');
     const tTex = makeTexture('#5c2a1a', '#7c3a1e', 8, 'grid');
-    const boxTex = makeTexture('#8B6914', '#7a5c10', 2, 'checker');
+    const boxTex = makeTexture('#9b7a28', '#7a5c10', 2, 'checker');
 
-    function makeMat(tex, color) {
-      return new THREE.MeshLambertMaterial({ map: tex, color: color || 0xffffff });
+    function makeMat(tex, color, roughness, metalness) {
+      return new THREE.MeshStandardMaterial({
+        map: tex,
+        color: color || 0xffffff,
+        roughness: roughness !== undefined ? roughness : 0.85,
+        metalness: metalness !== undefined ? metalness : 0.05
+      });
     }
 
     // Floor
@@ -575,8 +615,9 @@ class FPSGame {
     const group = new THREE.Group();
 
     // Body
-    const bodyMat = new THREE.MeshLambertMaterial({
-      color: team === 'ct' ? 0x1a3a7c : 0x7c3a1a
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: team === 'ct' ? 0x1a3a7c : 0x7c3a1a,
+      roughness: 0.8, metalness: 0.1
     });
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.0, 0.3), bodyMat);
     body.position.y = 0.5;
@@ -584,15 +625,16 @@ class FPSGame {
     group.add(body);
 
     // Head
-    const headMat = new THREE.MeshLambertMaterial({ color: 0xffcc99 });
+    const headMat = new THREE.MeshStandardMaterial({ color: 0xddb380, roughness: 0.9, metalness: 0.0 });
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), headMat);
     head.position.y = 1.3;
     head.castShadow = true;
     group.add(head);
 
     // Helmet
-    const helmetMat = new THREE.MeshLambertMaterial({
-      color: team === 'ct' ? 0x2255aa : 0x553311
+    const helmetMat = new THREE.MeshStandardMaterial({
+      color: team === 'ct' ? 0x1e4a99 : 0x664422,
+      roughness: 0.5, metalness: 0.3
     });
     const helmet = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.25, 0.45), helmetMat);
     helmet.position.y = 1.55;
@@ -611,13 +653,13 @@ class FPSGame {
     group.add(rArm);
 
     // Gun (carried by remote player)
-    const gunMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
+    const gunMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.8 });
     const gun = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.4), gunMat);
     gun.position.set(0.4, 0.8, -0.3);
     group.add(gun);
 
     // Legs
-    const legMat = new THREE.MeshLambertMaterial({ color: team === 'ct' ? 0x0a1a3c : 0x2a1000 });
+    const legMat = new THREE.MeshStandardMaterial({ color: team === 'ct' ? 0x0a1a3c : 0x2a1000, roughness: 0.9, metalness: 0.05 });
     const lLeg = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.7, 0.25), legMat);
     lLeg.position.set(-0.17, -0.35, 0);
     lLeg.castShadow = true;
@@ -690,6 +732,26 @@ class FPSGame {
     this.socket.on('connect', () => {
       const name = window.PLAYER_NAME || 'Player' + Math.floor(Math.random() * 1000);
       this.socket.join(name);
+      const status = document.getElementById('loadingStatus');
+      if (status) status.textContent = 'Joining server...';
+    });
+
+    this.socket.on('connect_error', () => {
+      const status = document.getElementById('loadingStatus');
+      if (status) {
+        status.textContent = 'Connection failed — retrying...';
+        status.style.color = '#e74c3c';
+      }
+    });
+
+    this.socket.on('disconnect', () => {
+      if (!document.getElementById('loadingScreen').style.display ||
+          document.getElementById('loadingScreen').style.display === 'none') return;
+      const status = document.getElementById('loadingStatus');
+      if (status) {
+        status.textContent = 'Disconnected — check your connection';
+        status.style.color = '#e74c3c';
+      }
     });
 
     this.socket.on('joined', (data) => {
@@ -710,7 +772,6 @@ class FPSGame {
       this.ui.updateWeapon('rifle');
 
       document.getElementById('loadingScreen').style.display = 'none';
-      document.getElementById('overlay').style.display = 'flex';
     });
 
     this.socket.on('gameState', (data) => {

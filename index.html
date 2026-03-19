@@ -422,7 +422,7 @@
 <div id="loadingScreen">
   <h2>FPS ARENA</h2>
   <div class="loader"></div>
-  <p style="color:#666; margin-top:16px; font-size:0.85em">Loading assets...</p>
+  <p id="loadingStatus" style="color:#666; margin-top:16px; font-size:0.85em">Loading assets...</p>
 </div>
 
 <!-- Overlay / Main Menu -->
@@ -545,6 +545,12 @@
   const SERVER_URL = window.SOCKET_SERVER_URL || null;
 
   let game = null;
+
+  // Hide loading screen once all scripts are ready
+  window.addEventListener('load', () => {
+    document.getElementById('loadingScreen').style.display = 'none';
+    document.getElementById('overlay').style.display = 'flex';
+  });
 
   // Start button
   document.getElementById('playBtn').addEventListener('click', startGame);
