@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OnlinePvP - Multiplayer Browser FPS</title>
+  <title>HYPERFIRE - Multiplayer Browser FPS</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -12,6 +12,8 @@
       --accent: #e74c3c;
       --accent2: #4fc3f7;
       --green: #2ecc71;
+      --yellow: #f1c40f;
+      --purple: #9b59b6;
       --text: #e6edf3;
       --muted: #8b949e;
       --border: rgba(255,255,255,0.08);
@@ -41,21 +43,24 @@
       z-index: 1000;
     }
     .loader-logo {
-      font-size: 2.8em; font-weight: 900;
-      color: var(--accent); letter-spacing: 4px;
-      text-shadow: 0 0 30px rgba(231,76,60,0.5);
-      margin-bottom: 24px;
+      font-size: 3em; font-weight: 900;
+      background: linear-gradient(135deg, #e74c3c, #ff6b35);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      letter-spacing: 6px; margin-bottom: 24px;
+      text-shadow: none;
     }
+    .loader-tagline { color: var(--muted); font-size: 0.8em; letter-spacing: 4px; margin-bottom: 30px; }
     .loader-bar {
       width: 220px; height: 3px;
       background: var(--panel2); border-radius: 2px; overflow: hidden;
     }
     .loader-fill {
-      height: 100%; background: var(--accent); border-radius: 2px;
+      height: 100%; background: linear-gradient(90deg, #e74c3c, #ff6b35);
+      border-radius: 2px;
       animation: loadFill 1.4s ease-in-out forwards;
     }
     @keyframes loadFill { 0%{width:0} 60%{width:70%} 100%{width:100%} }
-    .loader-text { color: var(--muted); font-size: 0.78em; margin-top: 12px; letter-spacing: 2px; }
+    .loader-text { color: var(--muted); font-size: 0.72em; margin-top: 12px; letter-spacing: 2px; }
 
     /* ===================== USERNAME MODAL ===================== */
     #usernameModal {
@@ -69,7 +74,7 @@
       background: var(--panel);
       border: 1px solid rgba(231,76,60,0.3);
       border-radius: 14px; padding: 44px 40px;
-      width: 360px; text-align: center;
+      width: 380px; text-align: center;
       box-shadow: 0 0 40px rgba(231,76,60,0.15), 0 20px 60px rgba(0,0,0,0.5);
     }
     .modal-logo-icon { font-size: 3em; margin-bottom: 16px; }
@@ -86,12 +91,13 @@
     .modal-input:focus { border-color: var(--accent); }
     .modal-input::placeholder { color: var(--muted); }
     .btn-primary {
-      background: var(--accent); border: none; border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent), #ff6b35);
+      border: none; border-radius: 8px;
       color: #fff; font-size: 1em; font-weight: bold;
       padding: 13px 32px; cursor: pointer; letter-spacing: 1px;
-      width: 100%; transition: background 0.2s, transform 0.1s;
+      width: 100%; transition: opacity 0.2s, transform 0.1s;
     }
-    .btn-primary:hover { background: #c0392b; }
+    .btn-primary:hover { opacity: 0.9; }
     .btn-primary:active { transform: scale(0.98); }
 
     /* ===================== HOME PAGE ===================== */
@@ -109,9 +115,10 @@
       padding: 0 20px; gap: 14px; flex-shrink: 0; z-index: 1;
     }
     .topbar-logo {
-      font-size: 1.35em; font-weight: 900;
-      color: var(--accent); letter-spacing: 3px;
-      text-shadow: 0 0 12px rgba(231,76,60,0.4);
+      font-size: 1.4em; font-weight: 900;
+      background: linear-gradient(135deg, #e74c3c, #ff6b35);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      letter-spacing: 4px;
     }
     .topbar-badge {
       color: var(--muted); font-size: 0.7em;
@@ -216,29 +223,36 @@
     .home-center {
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      gap: 28px; padding: 40px; position: relative;
+      gap: 24px; padding: 30px; position: relative;
       background: radial-gradient(ellipse at center, rgba(231,76,60,0.04) 0%, transparent 70%);
+      overflow-y: auto;
     }
 
     .game-logo { text-align: center; }
     .game-logo h1 {
-      font-size: 3.8em; font-weight: 900;
-      letter-spacing: 5px; color: var(--text);
-      text-shadow: 0 0 40px rgba(231,76,60,0.25);
+      font-size: 4em; font-weight: 900;
+      letter-spacing: 6px;
+      background: linear-gradient(135deg, #fff 30%, #ff6b35 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       line-height: 1;
     }
-    .game-logo .logo-sub {
-      font-size: 0.68em; color: var(--accent);
-      letter-spacing: 7px; text-transform: uppercase; margin-top: 6px;
+    .game-logo .logo-fire {
+      font-size: 0.65em; color: var(--accent);
+      letter-spacing: 8px; text-transform: uppercase; margin-top: 6px;
+      -webkit-text-fill-color: initial;
     }
 
-    /* Play section */
-    .play-section { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    /* Play buttons section */
+    .play-section {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      width: 100%; max-width: 420px;
+    }
     .btn-play {
-      background: var(--accent); border: none; border-radius: 14px;
-      color: #fff; font-size: 1.7em; font-weight: 900;
-      padding: 22px 90px; cursor: pointer; letter-spacing: 5px;
-      transition: all 0.2s;
+      background: linear-gradient(135deg, var(--accent), #ff6b35);
+      border: none; border-radius: 14px;
+      color: #fff; font-size: 1.6em; font-weight: 900;
+      padding: 20px 0; cursor: pointer; letter-spacing: 5px;
+      width: 100%; transition: all 0.2s;
       box-shadow: 0 0 30px rgba(231,76,60,0.35), 0 6px 20px rgba(0,0,0,0.4);
       position: relative; overflow: hidden;
     }
@@ -250,17 +264,33 @@
       transition: left 0.5s;
     }
     .btn-play:hover::after { left: 100%; }
-    .btn-play:hover {
-      background: #c0392b; transform: scale(1.04);
-      box-shadow: 0 0 50px rgba(231,76,60,0.55), 0 10px 30px rgba(0,0,0,0.5);
-    }
+    .btn-play:hover { transform: scale(1.03); box-shadow: 0 0 50px rgba(231,76,60,0.55), 0 10px 30px rgba(0,0,0,0.5); }
     .btn-play:active { transform: scale(0.97); }
-    .play-hint { color: var(--muted); font-size: 0.8em; letter-spacing: 1px; }
+    .play-hint { color: var(--muted); font-size: 0.78em; letter-spacing: 1px; }
+
+    /* Secondary play buttons row */
+    .play-row { display: flex; gap: 10px; width: 100%; }
+    .btn-secondary {
+      flex: 1; padding: 14px 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px; background: var(--panel2);
+      color: var(--text); cursor: pointer; font-weight: bold;
+      font-size: 0.88em; letter-spacing: 1px;
+      transition: all 0.2s; display: flex;
+      flex-direction: column; align-items: center; gap: 5px;
+    }
+    .btn-secondary .btn-icon { font-size: 1.5em; }
+    .btn-secondary .btn-label { font-size: 0.85em; letter-spacing: 1px; }
+    .btn-secondary .btn-desc { font-size: 0.68em; color: var(--muted); font-weight: normal; letter-spacing: 0; }
+    .btn-secondary:hover { border-color: rgba(255,255,255,0.25); background: #2a3140; transform: translateY(-2px); }
+    .btn-secondary:active { transform: translateY(0); }
+    .btn-secondary.pvc { border-color: rgba(155,89,182,0.4); }
+    .btn-secondary.pvc:hover { border-color: rgba(155,89,182,0.7); background: #1e1a2e; }
 
     /* Game info cards */
     .game-cards {
       display: grid; grid-template-columns: repeat(3, 1fr);
-      gap: 10px; width: 100%; max-width: 480px;
+      gap: 10px; width: 100%; max-width: 420px;
     }
     .game-card {
       background: var(--panel2); border: 1px solid var(--border);
@@ -302,6 +332,128 @@
     }
     .bottom-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
 
+    /* ===================== SERVER BROWSER MODAL ===================== */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.88);
+      display: none; align-items: center; justify-content: center;
+      z-index: 400; backdrop-filter: blur(6px);
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-window {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: 720px; max-width: 96vw;
+      max-height: 80vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 0 60px rgba(0,0,0,0.6);
+    }
+    .modal-header {
+      display: flex; align-items: center;
+      padding: 18px 22px; gap: 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .modal-title { font-size: 1.1em; font-weight: bold; flex: 1; letter-spacing: 2px; }
+    .modal-close {
+      background: none; border: none; color: var(--muted);
+      font-size: 1.3em; cursor: pointer; padding: 4px 8px;
+      border-radius: 6px; transition: all 0.2s;
+    }
+    .modal-close:hover { color: var(--text); background: var(--panel2); }
+    .modal-body { flex: 1; overflow-y: auto; padding: 16px 22px; }
+    .modal-footer {
+      padding: 14px 22px; border-top: 1px solid var(--border);
+      display: flex; gap: 10px; flex-shrink: 0;
+    }
+
+    /* Room list */
+    .room-list { display: flex; flex-direction: column; gap: 8px; }
+    .room-card {
+      background: var(--panel2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px;
+      display: flex; align-items: center; gap: 14px;
+      transition: border-color 0.2s;
+    }
+    .room-card:hover { border-color: rgba(255,255,255,0.18); }
+    .room-mode-badge {
+      width: 44px; height: 44px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3em; flex-shrink: 0;
+    }
+    .room-mode-badge.tdm { background: rgba(26,58,124,0.4); }
+    .room-mode-badge.ffa { background: rgba(231,76,60,0.2); }
+    .room-mode-badge.ctf { background: rgba(46,204,113,0.2); }
+    .room-mode-badge.pvc { background: rgba(155,89,182,0.25); }
+    .room-info { flex: 1; }
+    .room-name { font-weight: bold; font-size: 0.95em; }
+    .room-meta { font-size: 0.72em; color: var(--muted); margin-top: 3px; }
+    .room-players {
+      font-size: 0.8em; color: var(--muted); text-align: right;
+      min-width: 60px; flex-shrink: 0;
+    }
+    .room-players span { display: block; }
+    .room-full { color: var(--accent); }
+    .btn-join {
+      background: var(--accent); border: none; border-radius: 7px;
+      color: #fff; font-size: 0.82em; font-weight: bold;
+      padding: 8px 18px; cursor: pointer; letter-spacing: 1px;
+      transition: all 0.2s; flex-shrink: 0;
+    }
+    .btn-join:hover { background: #c0392b; }
+    .btn-join:disabled { background: var(--panel); color: var(--muted); cursor: not-allowed; }
+    .btn-create {
+      background: var(--panel2); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text);
+      font-size: 0.88em; font-weight: bold;
+      padding: 10px 20px; cursor: pointer; letter-spacing: 1px;
+      transition: all 0.2s; flex: 1;
+    }
+    .btn-create:hover { border-color: rgba(255,255,255,0.25); }
+    .room-empty { text-align: center; color: var(--muted); padding: 30px; }
+    .btn-refresh {
+      background: none; border: 1px solid var(--border);
+      border-radius: 8px; color: var(--muted);
+      font-size: 0.82em; padding: 10px 16px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .btn-refresh:hover { color: var(--text); border-color: rgba(255,255,255,0.25); }
+
+    /* ===================== CREATE SERVER MODAL ===================== */
+    #createServerModal .modal-window { width: 460px; }
+    .form-group { margin-bottom: 16px; }
+    .form-label {
+      display: block; font-size: 0.75em; font-weight: bold;
+      color: var(--muted); letter-spacing: 1px;
+      text-transform: uppercase; margin-bottom: 7px;
+    }
+    .form-input {
+      width: 100%; background: var(--panel2);
+      border: 1px solid var(--border);
+      border-radius: 7px; color: var(--text);
+      font-size: 0.95em; padding: 10px 13px;
+      outline: none; transition: border-color 0.2s;
+    }
+    .form-input:focus { border-color: rgba(231,76,60,0.5); }
+    .mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .mode-option {
+      background: var(--panel2); border: 2px solid transparent;
+      border-radius: 8px; padding: 10px 12px;
+      cursor: pointer; transition: all 0.2s;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .mode-option:hover { border-color: rgba(255,255,255,0.15); }
+    .mode-option.selected { border-color: var(--accent); background: rgba(231,76,60,0.08); }
+    .mode-option input { display: none; }
+    .mode-icon { font-size: 1.2em; }
+    .mode-details { flex: 1; }
+    .mode-name { font-size: 0.82em; font-weight: bold; }
+    .mode-desc { font-size: 0.67em; color: var(--muted); margin-top: 1px; }
+    .bot-count-row { display: flex; align-items: center; gap: 10px; }
+    .bot-count-row input[type=range] { flex: 1; }
+    .bot-count-val { font-weight: bold; color: var(--accent2); min-width: 20px; }
+
     /* ===================== CONNECTING SCREEN ===================== */
     #connectingScreen {
       position: fixed; inset: 0;
@@ -337,11 +489,14 @@
       z-index: 80; backdrop-filter: blur(3px);
     }
     #pauseOverlay.show { display: flex; }
-    .pause-title {
-      font-size: 2.2em; font-weight: 900;
-      letter-spacing: 4px; color: var(--text); margin-bottom: 8px;
+    .pause-logo {
+      font-size: 1.8em; font-weight: 900;
+      background: linear-gradient(135deg, #fff 30%, #ff6b35 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      letter-spacing: 6px; margin-bottom: 4px;
     }
-    .pause-sub { color: var(--muted); margin-bottom: 30px; font-size: 0.9em; }
+    .pause-title { font-size: 1.3em; font-weight: bold; color: var(--muted); letter-spacing: 3px; margin-bottom: 6px; }
+    .pause-room-info { color: var(--muted); font-size: 0.8em; margin-bottom: 24px; letter-spacing: 1px; }
     .pause-btns { display: flex; flex-direction: column; gap: 12px; width: 200px; }
     .pause-btn {
       border: none; border-radius: 8px;
@@ -349,8 +504,8 @@
       padding: 13px; cursor: pointer;
       letter-spacing: 1px; transition: all 0.2s;
     }
-    .pause-btn.resume { background: var(--accent); color: #fff; }
-    .pause-btn.resume:hover { background: #c0392b; }
+    .pause-btn.resume { background: linear-gradient(135deg, var(--accent), #ff6b35); color: #fff; }
+    .pause-btn.resume:hover { opacity: 0.9; }
     .pause-btn.quit { background: var(--panel2); color: var(--muted); border: 1px solid var(--border); }
     .pause-btn.quit:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
 
@@ -421,6 +576,7 @@
     #teamDisplay { position: fixed; top: 16px; left: 16px; z-index: 50; }
     #teamName { font-size: 14px; font-weight: bold; letter-spacing: 2px; }
     #killScore { color: #aaa; font-size: 12px; margin-top: 2px; }
+    #modeDisplay { color: #888; font-size: 11px; margin-top: 2px; letter-spacing: 1px; }
 
     /* Score header */
     #scoreHeader {
@@ -432,6 +588,26 @@
     .score-ct { background: rgba(26,58,124,0.85); color: #4fc3f7; border-radius: 0 0 0 6px; }
     .score-t { background: rgba(124,58,26,0.85); color: #ff8a65; border-radius: 0 0 6px 0; }
     .score-divider { background: rgba(0,0,0,0.7); color: #666; padding: 6px 10px; font-size: 0.9em; }
+
+    /* CTF Flag HUD */
+    #ctfHud {
+      position: fixed; top: 44px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; gap: 20px; z-index: 50;
+      display: none;
+    }
+    #ctfHud.active { display: flex; }
+    .flag-status {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(0,0,0,0.65); border-radius: 6px;
+      padding: 5px 12px; font-size: 12px; font-weight: bold;
+    }
+    .flag-icon { font-size: 1.2em; }
+    .flag-label { letter-spacing: 1px; }
+    .flag-state { font-size: 0.8em; font-weight: normal; }
+    .flag-status.ct-flag { border-left: 3px solid #4fc3f7; }
+    .flag-status.t-flag { border-left: 3px solid #ff8a65; }
+    .flag-status.carried { border-color: #f1c40f; background: rgba(241,196,15,0.15); }
 
     /* Kill feed */
     #killFeed { position: fixed; top: 60px; right: 16px; z-index: 50; text-align: right; pointer-events: none; }
@@ -467,13 +643,14 @@
     .score-team-ct { background: rgba(26,58,124,0.7); color: #4fc3f7; }
     .score-team-t { background: rgba(124,58,26,0.7); color: #ff8a65; }
     .score-team-box .team-label { font-size: 0.5em; letter-spacing: 2px; display: block; }
-    #scoreboard table { width: 600px; border-collapse: collapse; color: #ddd; }
+    #scoreboard table { width: 620px; border-collapse: collapse; color: #ddd; }
     #scoreboard th {
       padding: 8px 12px; text-align: left;
       font-size: 11px; letter-spacing: 1px; color: #888;
       border-bottom: 1px solid rgba(255,255,255,0.1);
     }
     #scoreboard td { padding: 8px 12px; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .bot-tag { font-size: 10px; color: var(--purple); background: rgba(155,89,182,0.2); border-radius: 3px; padding: 1px 5px; margin-left: 4px; }
 
     /* Death screen */
     #deathScreen {
@@ -493,6 +670,121 @@
     /* Effects */
     #damageFlash { position: fixed; inset: 0; background: rgba(255,0,0,0); pointer-events: none; z-index: 54; transition: opacity 0.3s; }
     #vignette { position: fixed; inset: 0; background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.5) 100%); pointer-events: none; z-index: 48; }
+
+    /* ===================== PROFILE WIDGET (top-right) ===================== */
+    .profile-widget {
+      position: relative; display: flex; align-items: center; gap: 8px; cursor: pointer;
+    }
+    .topbar-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.9em; font-weight: 900; color: #fff;
+      border: 2px solid rgba(231,76,60,0.5);
+      flex-shrink: 0; user-select: none;
+    }
+    .topbar-coins {
+      font-size: 0.78em; color: #f1c40f; font-weight: bold;
+      letter-spacing: 0.5px; white-space: nowrap;
+    }
+    .profile-dropdown {
+      position: absolute; top: calc(100% + 10px); right: 0;
+      width: 280px; background: var(--panel);
+      border: 1px solid var(--border); border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      padding: 16px; z-index: 200;
+      display: none; flex-direction: column; gap: 12px;
+      opacity: 0; transform: translateY(-6px);
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .profile-widget:hover .profile-dropdown,
+    .profile-widget.open .profile-dropdown { display: flex; opacity: 1; transform: translateY(0); }
+    .pd-header { display: flex; align-items: center; gap: 10px; }
+    .pd-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3em; font-weight: 900; color: #fff; flex-shrink: 0;
+      border: 2px solid rgba(231,76,60,0.5);
+    }
+    .pd-info { flex: 1; }
+    .pd-name { font-size: 0.95em; font-weight: bold; }
+    .pd-rank { font-size: 0.7em; color: var(--muted); margin-top: 1px; }
+    .pd-coins { font-size: 0.78em; color: #f1c40f; font-weight: bold; margin-top: 2px; }
+    .pd-divider { height: 1px; background: var(--border); }
+    .pd-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+    .pd-stat { text-align: center; background: var(--panel2); border-radius: 6px; padding: 7px 4px; }
+    .pd-stat-val { font-size: 1em; font-weight: 900; }
+    .pd-stat-lbl { font-size: 0.58em; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 1px; }
+    .pd-edit-btn {
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 6px; color: var(--muted); font-size: 0.72em;
+      padding: 5px 12px; cursor: pointer; text-align: center;
+      transition: all 0.2s; width: 100%;
+    }
+    .pd-edit-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+    /* ===================== ARMORY (left panel) ===================== */
+    .armory-section { display: flex; flex-direction: column; gap: 8px; }
+    .weapon-card {
+      background: var(--panel2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 11px 13px;
+      display: flex; align-items: center; gap: 10px;
+      transition: border-color 0.2s;
+    }
+    .weapon-card.owned { border-color: rgba(46,204,113,0.25); }
+    .weapon-card.equipped { border-color: rgba(231,76,60,0.5); background: rgba(231,76,60,0.06); }
+    .weapon-card.locked { opacity: 0.7; }
+    .weapon-icon { font-size: 1.4em; flex-shrink: 0; }
+    .weapon-info { flex: 1; min-width: 0; }
+    .weapon-name { font-size: 0.82em; font-weight: bold; }
+    .weapon-stats { font-size: 0.65em; color: var(--muted); margin-top: 2px; }
+    .weapon-action { flex-shrink: 0; }
+    .btn-weapon {
+      border: none; border-radius: 6px; font-size: 0.7em; font-weight: bold;
+      padding: 5px 10px; cursor: pointer; letter-spacing: 0.5px; transition: all 0.2s;
+    }
+    .btn-weapon.buy { background: #f1c40f; color: #000; }
+    .btn-weapon.buy:hover { background: #d4ac0d; }
+    .btn-weapon.equip { background: var(--panel); border: 1px solid rgba(46,204,113,0.5); color: var(--green); }
+    .btn-weapon.equip:hover { background: rgba(46,204,113,0.1); }
+    .btn-weapon.equipped { background: rgba(231,76,60,0.2); color: var(--accent); border: 1px solid rgba(231,76,60,0.4); cursor: default; }
+    .btn-weapon.locked { background: var(--panel); color: var(--muted); border: 1px solid var(--border); cursor: not-allowed; }
+    .weapon-price { font-size: 0.7em; color: #f1c40f; font-weight: bold; display: flex; align-items: center; gap: 3px; }
+
+    /* ===================== DAILY MISSIONS ===================== */
+    .mission-card {
+      background: var(--panel2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 11px 13px; transition: border-color 0.2s;
+    }
+    .mission-card.done { border-color: rgba(46,204,113,0.4); opacity: 0.7; }
+    .mission-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .mission-icon { font-size: 1.1em; }
+    .mission-title { font-size: 0.82em; font-weight: bold; flex: 1; }
+    .mission-reward { font-size: 0.72em; color: #f1c40f; font-weight: bold; }
+    .mission-desc { font-size: 0.7em; color: var(--muted); margin-bottom: 6px; }
+    .mission-progress-bg { background: rgba(0,0,0,0.4); border-radius: 3px; height: 5px; overflow: hidden; }
+    .mission-progress-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), #ff6b35); transition: width 0.3s; }
+    .mission-progress-text { font-size: 0.65em; color: var(--muted); margin-top: 3px; text-align: right; }
+
+    /* ===================== COINS TOAST ===================== */
+    #coinsToast {
+      position: fixed; bottom: 60px; right: 20px;
+      background: rgba(0,0,0,0.85); border: 1px solid rgba(241,196,15,0.4);
+      border-radius: 8px; padding: 8px 14px;
+      font-size: 0.82em; font-weight: bold; color: #f1c40f;
+      z-index: 57; display: none; pointer-events: none;
+      animation: toastIn 0.3s ease;
+    }
+    #coinsToast.show { display: block; }
+
+    /* Flag pickup toast */
+    #flagToast {
+      position: fixed; top: 90px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.8); border-radius: 8px; padding: 8px 18px;
+      font-size: 0.88em; font-weight: bold; letter-spacing: 1px;
+      z-index: 56; display: none; pointer-events: none;
+    }
+    #flagToast.show { display: block; animation: toastIn 0.3s ease; }
+    @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(-8px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
   </style>
 </head>
 <body>
@@ -502,7 +794,8 @@
 
 <!-- ===================== LOADING SCREEN ===================== -->
 <div id="loadingScreen">
-  <div class="loader-logo">ONLINEPVP</div>
+  <div class="loader-logo">HYPERFIRE</div>
+  <div class="loader-tagline">Multiplayer Browser FPS</div>
   <div class="loader-bar"><div class="loader-fill"></div></div>
   <p class="loader-text">LOADING...</p>
 </div>
@@ -510,11 +803,101 @@
 <!-- ===================== USERNAME MODAL (first visit only) ===================== -->
 <div id="usernameModal">
   <div class="modal-card">
-    <div class="modal-logo-icon">🎮</div>
-    <h2>Welcome, Soldier</h2>
-    <p>Choose a username to identify yourself on the battlefield. This will be saved for future visits.</p>
-    <input type="text" id="usernameInput" class="modal-input" placeholder="Enter username" maxlength="20" autocomplete="off">
-    <button class="btn-primary" id="saveUsernameBtn">CONFIRM &amp; ENTER</button>
+    <div class="modal-logo-icon">🔥</div>
+    <h2>Welcome to HYPERFIRE</h2>
+    <p>Choose a callsign to identify yourself on the battlefield. This will be saved for future visits.</p>
+    <input type="text" id="usernameInput" class="modal-input" placeholder="Enter callsign" maxlength="20" autocomplete="off">
+    <button class="btn-primary" id="saveUsernameBtn">LOCK IN &amp; PLAY</button>
+  </div>
+</div>
+
+<!-- ===================== SERVER BROWSER MODAL ===================== -->
+<div class="modal-overlay" id="serverBrowserModal">
+  <div class="modal-window">
+    <div class="modal-header">
+      <span class="modal-title">🌐 SERVER BROWSER</span>
+      <button class="btn-refresh" id="refreshRoomsBtn">⟳ Refresh</button>
+      <button class="modal-close" id="closeBrowserBtn">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="room-list" id="roomList">
+        <div class="room-empty">Loading servers...</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-create" id="openCreateServerBtn">+ CREATE SERVER</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== CREATE SERVER MODAL ===================== -->
+<div class="modal-overlay" id="createServerModal">
+  <div class="modal-window">
+    <div class="modal-header">
+      <span class="modal-title">⚙ CREATE SERVER</span>
+      <button class="modal-close" id="closeCreateBtn">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Server Name</label>
+        <input type="text" id="newServerName" class="form-input" placeholder="My Awesome Server" maxlength="32">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Game Mode</label>
+        <div class="mode-grid" id="modeGrid">
+          <label class="mode-option selected" data-mode="tdm">
+            <input type="radio" name="mode" value="tdm" checked>
+            <span class="mode-icon">⚔️</span>
+            <span class="mode-details">
+              <span class="mode-name">Team Deathmatch</span>
+              <span class="mode-desc">CT vs T — most kills wins</span>
+            </span>
+          </label>
+          <label class="mode-option" data-mode="ffa">
+            <input type="radio" name="mode" value="ffa">
+            <span class="mode-icon">💀</span>
+            <span class="mode-details">
+              <span class="mode-name">Free For All</span>
+              <span class="mode-desc">Everyone vs everyone</span>
+            </span>
+          </label>
+          <label class="mode-option" data-mode="ctf">
+            <input type="radio" name="mode" value="ctf">
+            <span class="mode-icon">🚩</span>
+            <span class="mode-details">
+              <span class="mode-name">Capture the Flag</span>
+              <span class="mode-desc">Steal and capture the flag</span>
+            </span>
+          </label>
+          <label class="mode-option" data-mode="pvc">
+            <input type="radio" name="mode" value="pvc">
+            <span class="mode-icon">🤖</span>
+            <span class="mode-details">
+              <span class="mode-name">vs Bots</span>
+              <span class="mode-desc">Train against AI enemies</span>
+            </span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group" id="botCountGroup" style="display:none">
+        <label class="form-label">Bot Count</label>
+        <div class="bot-count-row">
+          <input type="range" id="botCountSlider" min="1" max="8" value="4">
+          <span class="bot-count-val" id="botCountVal">4</span> bots
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Max Players</label>
+        <div class="bot-count-row">
+          <input type="range" id="maxPlayersSlider" min="2" max="16" value="12">
+          <span class="bot-count-val" id="maxPlayersVal">12</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-create" id="cancelCreateBtn" style="flex:0;padding:10px 18px">Cancel</button>
+      <button class="btn-primary" id="createAndJoinBtn" style="padding:10px 0">CREATE &amp; JOIN</button>
+    </div>
   </div>
 </div>
 
@@ -522,12 +905,38 @@
 <div id="homePage">
   <!-- Top Bar -->
   <div class="topbar">
-    <span class="topbar-logo">ONLINEPVP</span>
-    <span class="topbar-badge">v1.0</span>
+    <span class="topbar-logo">HYPERFIRE</span>
+    <span class="topbar-badge">v2.0</span>
     <div class="topbar-spacer"></div>
     <div class="topbar-status">
       <div class="status-dot" id="serverStatusDot"></div>
       <span id="serverStatusText">Connecting...</span>
+    </div>
+    <!-- Profile widget (hover to expand) -->
+    <div class="profile-widget" id="profileWidget">
+      <div class="topbar-avatar" id="topbarAvatar">?</div>
+      <div class="topbar-coins" id="topbarCoins">💰 0</div>
+      <div class="profile-dropdown" id="profileDropdown">
+        <div class="pd-header">
+          <div class="pd-avatar" id="pdAvatar">?</div>
+          <div class="pd-info">
+            <div class="pd-name" id="pdName">Unknown</div>
+            <div class="pd-rank" id="pdRank">🔫 RECRUIT</div>
+            <div class="pd-coins" id="pdCoins">💰 0 coins</div>
+          </div>
+        </div>
+        <div class="pd-divider"></div>
+        <div class="pd-stats">
+          <div class="pd-stat"><div class="pd-stat-val red" id="pdKills">0</div><div class="pd-stat-lbl">Kills</div></div>
+          <div class="pd-stat"><div class="pd-stat-val blue" id="pdDeaths">0</div><div class="pd-stat-lbl">Deaths</div></div>
+          <div class="pd-stat"><div class="pd-stat-val green" id="pdKD">0.00</div><div class="pd-stat-lbl">K/D</div></div>
+          <div class="pd-stat"><div class="pd-stat-val" id="pdGames">0</div><div class="pd-stat-lbl">Games</div></div>
+          <div class="pd-stat"><div class="pd-stat-val" id="pdWins">0</div><div class="pd-stat-lbl">Wins</div></div>
+          <div class="pd-stat"><div class="pd-stat-val" id="pdStreak">0</div><div class="pd-stat-lbl">Streak</div></div>
+        </div>
+        <div class="pd-divider"></div>
+        <button class="pd-edit-btn" id="pdEditBtn">✏ Change Callsign</button>
+      </div>
     </div>
     <button class="topbar-btn" id="settingsBtn">⚙ Settings</button>
   </div>
@@ -535,67 +944,44 @@
   <!-- Main 3-column layout -->
   <div class="home-content">
 
-    <!-- LEFT PANEL: Profile + Stats -->
+    <!-- LEFT PANEL: Armory + Missions -->
     <div class="side-panel left">
-      <div class="panel-title">Player Profile</div>
-
-      <!-- Profile card -->
-      <div class="profile-card">
-        <div class="profile-avatar" id="profileAvatar">?</div>
-        <div class="profile-name" id="profileName">Unknown</div>
-        <div class="profile-sub">Browser FPS Player</div>
-        <button class="profile-edit-btn" id="editUsernameBtn">✏ Change Name</button>
+      <div class="panel-title">🔫 Arsenal</div>
+      <div class="armory-section" id="armoryList">
+        <!-- Populated by renderArmory() -->
       </div>
 
-      <!-- Rank -->
-      <div class="rank-badge">
-        <div class="rank-icon" id="rankIcon">🔫</div>
-        <div class="rank-info">
-          <div class="rank-name" id="rankName">Recruit</div>
-          <div class="rank-desc" id="rankDesc">Keep fighting!</div>
-        </div>
-      </div>
-
-      <!-- Stats grid -->
-      <div class="panel-title">Statistics</div>
-      <div class="stats-grid">
-        <div class="stat-box">
-          <div class="stat-value red" id="statKills">0</div>
-          <div class="stat-label">Total Kills</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-value blue" id="statDeaths">0</div>
-          <div class="stat-label">Total Deaths</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-value green" id="statKD">0.00</div>
-          <div class="stat-label">K/D Ratio</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-value" id="statGames">0</div>
-          <div class="stat-label">Games</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-value red" id="statStreak">0</div>
-          <div class="stat-label">Best Streak</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-value" id="statScore">0</div>
-          <div class="stat-label">Best Score</div>
-        </div>
+      <div class="panel-title" style="margin-top:4px">📋 Daily Missions</div>
+      <div id="missionsList">
+        <!-- Populated by renderMissions() -->
       </div>
     </div>
 
-    <!-- CENTER: Logo + Play Button -->
+    <!-- CENTER: Logo + Play Buttons -->
     <div class="home-center">
       <div class="game-logo">
-        <h1>ONLINE<span style="color:var(--accent)">PvP</span></h1>
-        <div class="logo-sub">Multiplayer · Browser · FPS</div>
+        <h1>HYPERFIRE</h1>
+        <div class="logo-fire">🔥 Multiplayer · Browser · FPS 🔥</div>
       </div>
 
       <div class="play-section">
-        <button class="btn-play" id="playBtn">PLAY</button>
-        <div class="play-hint">Click PLAY to find a match instantly</div>
+        <!-- Quick Play -->
+        <button class="btn-play" id="quickPlayBtn">⚡ QUICK PLAY</button>
+        <div class="play-hint">Auto-join the best available server</div>
+
+        <!-- Secondary buttons -->
+        <div class="play-row">
+          <button class="btn-secondary" id="serverBrowserBtn">
+            <span class="btn-icon">🌐</span>
+            <span class="btn-label">SERVER BROWSER</span>
+            <span class="btn-desc">Choose or create a server</span>
+          </button>
+          <button class="btn-secondary pvc" id="pvcBtn">
+            <span class="btn-icon">🤖</span>
+            <span class="btn-label">vs BOTS</span>
+            <span class="btn-desc">Train against AI opponents</span>
+          </button>
+        </div>
       </div>
 
       <!-- Game info cards -->
@@ -607,8 +993,8 @@
         </div>
         <div class="game-card">
           <div class="card-icon">⚔</div>
-          <div class="card-label">Mode</div>
-          <div class="card-value">Deathmatch</div>
+          <div class="card-label">Modes</div>
+          <div class="card-value">TDM / FFA / CTF</div>
         </div>
         <div class="game-card">
           <div class="card-icon">👥</div>
@@ -633,18 +1019,22 @@
         <div class="control-row"><span class="key">Esc</span><span class="ctrl-desc">Pause menu</span></div>
       </div>
 
-      <div class="panel-title">Tips</div>
-      <div class="tip-item">
-        <div class="tip-title">🎯 Aim for the Head</div>
-        <div class="tip-text">Headshots deal 2.5× damage. Flick your crosshair to enemy heads for quick eliminations.</div>
+      <div class="panel-title">Game Modes</div>
+      <div class="tip-item" style="border-left-color:#4fc3f7">
+        <div class="tip-title">⚔️ Team Deathmatch</div>
+        <div class="tip-text">CT vs Terrorist. The team with the most kills when time runs out wins.</div>
       </div>
-      <div class="tip-item">
-        <div class="tip-title">🔄 Reload Smart</div>
-        <div class="tip-text">Press R when behind cover. Running out of ammo mid-fight is a quick way to die.</div>
+      <div class="tip-item" style="border-left-color:#e74c3c">
+        <div class="tip-title">💀 Free For All</div>
+        <div class="tip-text">Every player for themselves. No teams — shoot everyone you see.</div>
       </div>
-      <div class="tip-item">
-        <div class="tip-title">📍 Use Cover</div>
-        <div class="tip-text">Peek from the sides of crates and walls. Staying in the open is dangerous.</div>
+      <div class="tip-item" style="border-left-color:#2ecc71">
+        <div class="tip-title">🚩 Capture the Flag</div>
+        <div class="tip-text">Grab the enemy flag and carry it back to your base to score points.</div>
+      </div>
+      <div class="tip-item" style="border-left-color:#9b59b6">
+        <div class="tip-title">🤖 vs Bots</div>
+        <div class="tip-text">Practice your aim and strategy against AI-controlled opponents.</div>
       </div>
     </div>
   </div>
@@ -652,7 +1042,7 @@
   <!-- Bottom bar -->
   <div class="bottombar">
     <div class="bottom-item"><div class="bottom-dot"></div><span id="onlineCount">0 players online</span></div>
-    <div class="bottom-item">v1.0.0</div>
+    <div class="bottom-item">HYPERFIRE v2.0</div>
     <div class="bottom-item" id="lastSavedTime">Auto-save: never</div>
   </div>
 </div>
@@ -669,8 +1059,9 @@
 
 <!-- ===================== PAUSE OVERLAY ===================== -->
 <div id="pauseOverlay">
+  <div class="pause-logo">HYPERFIRE</div>
   <div class="pause-title">PAUSED</div>
-  <div class="pause-sub">Press Escape or click Resume to continue</div>
+  <div class="pause-room-info" id="pauseRoomInfo"></div>
   <div class="pause-btns">
     <button class="pause-btn resume" id="resumeBtn">▶ RESUME</button>
     <button class="pause-btn quit" id="quitBtn">✕ QUIT TO MENU</button>
@@ -689,9 +1080,24 @@
   <div class="score-box score-t"><span id="tScore">0</span> T</div>
 </div>
 
+<!-- CTF Flag status (shown only in CTF mode) -->
+<div id="ctfHud" class="hud">
+  <div class="flag-status ct-flag" id="ctFlagStatus">
+    <span class="flag-icon">🔵</span>
+    <span class="flag-label">CT FLAG</span>
+    <span class="flag-state" id="ctFlagState">AT BASE</span>
+  </div>
+  <div class="flag-status t-flag" id="tFlagStatus">
+    <span class="flag-icon">🔴</span>
+    <span class="flag-label">T FLAG</span>
+    <span class="flag-state" id="tFlagState">AT BASE</span>
+  </div>
+</div>
+
 <div id="teamDisplay" class="hud">
   <div id="teamName">-</div>
   <div id="killScore">Kills: 0</div>
+  <div id="modeDisplay"></div>
 </div>
 
 <div id="healthBar" class="hud">
@@ -710,6 +1116,8 @@
 
 <div id="reloadIndicator" class="hud">RELOADING...</div>
 <div id="killFeed" class="hud"></div>
+<div id="flagToast" class="hud"></div>
+<div id="coinsToast"></div>
 
 <div id="minimap" class="hud">
   <canvas id="minimapCanvas" width="120" height="120"></canvas>
@@ -754,9 +1162,17 @@
   const SERVER_URL = window.SOCKET_SERVER_URL || null;
 
   // ===================== STATS MANAGEMENT =====================
-  const STATS_KEY = 'onlinepvp_stats';
+  const STATS_KEY = 'hyperfire_stats';
 
   function loadStats() {
+    // Migrate old key
+    try {
+      const old = localStorage.getItem('onlinepvp_stats');
+      if (old && !localStorage.getItem(STATS_KEY)) {
+        localStorage.setItem(STATS_KEY, old);
+        localStorage.removeItem('onlinepvp_stats');
+      }
+    } catch(e) {}
     try {
       const saved = localStorage.getItem(STATS_KEY);
       return saved ? JSON.parse(saved) : defaultStats();
@@ -769,8 +1185,15 @@
       totalKills: 0,
       totalDeaths: 0,
       totalGames: 0,
+      totalWins: 0,
       bestKillStreak: 0,
       highestScore: 0,
+      coins: 0,
+      ownedWeapons: ['ak47', 'pistol'],
+      equippedPrimary: 'ak47',
+      equippedSecondary: 'pistol',
+      dailyMissions: null,
+      dailyDate: null,
       lastPlayed: null
     };
   }
@@ -779,13 +1202,11 @@
     try {
       localStorage.setItem(STATS_KEY, JSON.stringify(stats));
       updateLastSaved();
-      // Cloud sync (non-blocking)
       if (stats.playerName) cloudSyncStats(stats);
     } catch(e) {}
   }
 
   async function cloudSyncStats(stats) {
-    if (!SERVER_URL && window.location.hostname === 'localhost') return;
     const base = SERVER_URL || '';
     try {
       await fetch(`${base}/api/stats/${encodeURIComponent(stats.playerName)}`, {
@@ -793,7 +1214,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(stats)
       });
-    } catch(e) { /* offline, local save is fine */ }
+    } catch(e) {}
   }
 
   async function loadCloudStats(name) {
@@ -810,13 +1231,22 @@
 
   function mergeStats(local, cloud) {
     if (!cloud) return local;
+    // Merge owned weapons (union)
+    const owned = Array.from(new Set([...(local.ownedWeapons || ['ak47','pistol']), ...(cloud.ownedWeapons || [])]));
     return {
       playerName: local.playerName,
       totalKills: Math.max(local.totalKills || 0, cloud.totalKills || 0),
       totalDeaths: Math.max(local.totalDeaths || 0, cloud.totalDeaths || 0),
       totalGames: Math.max(local.totalGames || 0, cloud.totalGames || 0),
+      totalWins: Math.max(local.totalWins || 0, cloud.totalWins || 0),
       bestKillStreak: Math.max(local.bestKillStreak || 0, cloud.bestKillStreak || 0),
       highestScore: Math.max(local.highestScore || 0, cloud.highestScore || 0),
+      coins: Math.max(local.coins || 0, cloud.coins || 0),
+      ownedWeapons: owned,
+      equippedPrimary: local.equippedPrimary || 'ak47',
+      equippedSecondary: local.equippedSecondary || 'pistol',
+      dailyMissions: local.dailyMissions,
+      dailyDate: local.dailyDate,
       lastPlayed: local.lastPlayed
     };
   }
@@ -830,12 +1260,13 @@
 
   // ===================== RANK SYSTEM =====================
   function getRank(kills) {
-    if (kills >= 500) return { icon: '🏆', name: 'Legend', desc: 'Top of the leaderboard' };
-    if (kills >= 200) return { icon: '💀', name: 'Veteran', desc: 'Battle hardened' };
-    if (kills >= 100) return { icon: '🎖', name: 'Sergeant', desc: 'Combat experienced' };
-    if (kills >= 50) return { icon: '⭐', name: 'Corporal', desc: 'Showing promise' };
-    if (kills >= 20) return { icon: '🔰', name: 'Private', desc: 'Learning the ropes' };
-    return { icon: '🔫', name: 'Recruit', desc: 'Keep fighting!' };
+    if (kills >= 1000) return { icon: '🏆', name: 'LEGEND', desc: 'The apex predator' };
+    if (kills >= 500)  return { icon: '💀', name: 'VETERAN', desc: 'Battle-hardened warrior' };
+    if (kills >= 200)  return { icon: '🎖', name: 'SERGEANT', desc: 'Combat experienced' };
+    if (kills >= 100)  return { icon: '⭐', name: 'CORPORAL', desc: 'Showing real promise' };
+    if (kills >= 50)   return { icon: '🔰', name: 'PRIVATE', desc: 'Learning the ropes' };
+    if (kills >= 20)   return { icon: '🪖', name: 'CADET', desc: 'First blood earned' };
+    return { icon: '🔫', name: 'RECRUIT', desc: 'Keep fighting!' };
   }
 
   // ===================== UI HELPERS =====================
@@ -852,22 +1283,201 @@
     const deaths = stats.totalDeaths || 0;
     const kd = deaths > 0 ? (kills / deaths).toFixed(2) : kills.toFixed(2);
     const rank = getRank(kills);
+    const coins = stats.coins || 0;
+    const letter = name.charAt(0).toUpperCase() || '?';
+    const color = getAvatarColor(name);
 
-    document.getElementById('profileName').textContent = name;
-    document.getElementById('statKills').textContent = kills;
-    document.getElementById('statDeaths').textContent = deaths;
-    document.getElementById('statKD').textContent = kd;
-    document.getElementById('statGames').textContent = stats.totalGames || 0;
-    document.getElementById('statStreak').textContent = stats.bestKillStreak || 0;
-    document.getElementById('statScore').textContent = stats.highestScore || 0;
-    document.getElementById('rankIcon').textContent = rank.icon;
-    document.getElementById('rankName').textContent = rank.name;
-    document.getElementById('rankDesc').textContent = rank.desc;
+    // Topbar widget
+    const ta = document.getElementById('topbarAvatar');
+    if (ta) { ta.textContent = letter; ta.style.background = color; }
+    const tc = document.getElementById('topbarCoins');
+    if (tc) tc.textContent = `💰 ${coins}`;
 
-    const avatar = document.getElementById('profileAvatar');
-    avatar.textContent = name.charAt(0).toUpperCase() || '?';
-    avatar.style.background = getAvatarColor(name);
+    // Dropdown
+    const pdA = document.getElementById('pdAvatar');
+    if (pdA) { pdA.textContent = letter; pdA.style.background = color; }
+    const pdN = document.getElementById('pdName');
+    if (pdN) pdN.textContent = name;
+    const pdR = document.getElementById('pdRank');
+    if (pdR) pdR.textContent = `${rank.icon} ${rank.name}`;
+    const pdC = document.getElementById('pdCoins');
+    if (pdC) pdC.textContent = `💰 ${coins} coins`;
+    const pdK = document.getElementById('pdKills'); if (pdK) pdK.textContent = kills;
+    const pdD = document.getElementById('pdDeaths'); if (pdD) pdD.textContent = deaths;
+    const pdKD = document.getElementById('pdKD'); if (pdKD) pdKD.textContent = kd;
+    const pdG = document.getElementById('pdGames'); if (pdG) pdG.textContent = stats.totalGames || 0;
+    const pdW = document.getElementById('pdWins'); if (pdW) pdW.textContent = stats.totalWins || 0;
+    const pdS = document.getElementById('pdStreak'); if (pdS) pdS.textContent = stats.bestKillStreak || 0;
+
+    renderArmory();
+    renderMissions();
   }
+
+  // ===================== WEAPON DEFINITIONS =====================
+  const WEAPON_INFO = {
+    ak47:    { name: 'AK-47',         icon: '🔫', tier: 'primary',   damage: 25,  rateLabel: 'Auto',  price: 0,    ammoLabel: '30/90',   desc: 'Reliable assault rifle' },
+    m4a1:    { name: 'M4A1-S',        icon: '🔫', tier: 'primary',   damage: 22,  rateLabel: 'Auto',  price: 500,  ammoLabel: '30/90',   desc: 'Accurate CT carbine' },
+    awp:     { name: 'AWP',           icon: '🎯', tier: 'primary',   damage: 100, rateLabel: 'Bolt',  price: 1000, ammoLabel: '5/20',    desc: '1-shot kill sniper' },
+    shotgun: { name: 'Shotgun',       icon: '💥', tier: 'primary',   damage: 90,  rateLabel: 'Pump',  price: 800,  ammoLabel: '8/32',    desc: 'Devastating up close' },
+    smg:     { name: 'UMP-45',        icon: '🔫', tier: 'primary',   damage: 16,  rateLabel: 'Fast',  price: 600,  ammoLabel: '25/100',  desc: 'Rapid-fire SMG' },
+    pistol:  { name: 'Glock-18',      icon: '🔫', tier: 'secondary', damage: 35,  rateLabel: 'Semi',  price: 0,    ammoLabel: '12/36',   desc: 'Starter sidearm' },
+    deagle:  { name: 'Desert Eagle',  icon: '🦅', tier: 'secondary', damage: 55,  rateLabel: 'Semi',  price: 400,  ammoLabel: '7/28',    desc: 'Powerful sidearm' },
+  };
+  const PRIMARY_WEAPONS   = ['ak47','m4a1','awp','shotgun','smg'];
+  const SECONDARY_WEAPONS_LIST = ['pistol','deagle'];
+
+  function renderArmory() {
+    const el = document.getElementById('armoryList');
+    if (!el) return;
+    const owned = stats.ownedWeapons || ['ak47','pistol'];
+    const eqP = stats.equippedPrimary || 'ak47';
+    const eqS = stats.equippedSecondary || 'pistol';
+    const all = [...PRIMARY_WEAPONS, ...SECONDARY_WEAPONS_LIST];
+
+    el.innerHTML = all.map(wid => {
+      const w = WEAPON_INFO[wid];
+      const isOwned = owned.includes(wid);
+      const isEqP = wid === eqP;
+      const isEqS = wid === eqS;
+      const isEquipped = isEqP || isEqS;
+      const tierLabel = w.tier === 'primary' ? 'PRIMARY' : 'SECONDARY';
+      let cardClass = 'weapon-card';
+      if (isEquipped) cardClass += ' equipped';
+      else if (isOwned) cardClass += ' owned';
+      else cardClass += ' locked';
+
+      let actionHtml;
+      if (isEquipped) {
+        actionHtml = `<button class="btn-weapon equipped" disabled>✓ EQUIPPED</button>`;
+      } else if (isOwned) {
+        actionHtml = `<button class="btn-weapon equip" onclick="equipWeapon('${wid}','${w.tier}')">EQUIP</button>`;
+      } else {
+        const canAfford = (stats.coins || 0) >= w.price;
+        actionHtml = canAfford
+          ? `<div><div class="weapon-price">💰 ${w.price}</div><button class="btn-weapon buy" onclick="buyWeapon('${wid}')">BUY</button></div>`
+          : `<div><div class="weapon-price">💰 ${w.price}</div><button class="btn-weapon locked" disabled>🔒</button></div>`;
+      }
+
+      return `<div class="${cardClass}">
+        <span class="weapon-icon">${w.icon}</span>
+        <div class="weapon-info">
+          <div class="weapon-name">${w.name} <span style="font-size:0.65em;color:var(--muted);font-weight:normal">${tierLabel}</span></div>
+          <div class="weapon-stats">DMG ${w.damage} · ${w.rateLabel} · ${w.ammoLabel}</div>
+        </div>
+        <div class="weapon-action">${actionHtml}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function buyWeapon(wid) {
+    const w = WEAPON_INFO[wid];
+    if (!w) return;
+    if ((stats.coins || 0) < w.price) return;
+    stats.coins -= w.price;
+    if (!stats.ownedWeapons) stats.ownedWeapons = ['ak47','pistol'];
+    if (!stats.ownedWeapons.includes(wid)) stats.ownedWeapons.push(wid);
+    // Auto-equip after buying
+    if (w.tier === 'primary') stats.equippedPrimary = wid;
+    else stats.equippedSecondary = wid;
+    saveStats(stats);
+    updateProfileUI();
+    showCoinsToast(`🔓 Unlocked ${w.name}!`, '#2ecc71');
+  }
+
+  function equipWeapon(wid, tier) {
+    if (tier === 'primary') stats.equippedPrimary = wid;
+    else stats.equippedSecondary = wid;
+    saveStats(stats);
+    renderArmory();
+  }
+
+  // ===================== DAILY MISSIONS =====================
+  const ALL_MISSIONS = [
+    { id: 'kills_5',  icon: '🎯', title: 'First Blood',   desc: 'Get 5 kills',          reward: 50,  type: 'kills',  target: 5  },
+    { id: 'kills_10', icon: '💀', title: 'On a Roll',     desc: 'Get 10 kills',         reward: 100, type: 'kills',  target: 10 },
+    { id: 'kills_20', icon: '🔥', title: 'Rampage',       desc: 'Get 20 kills',         reward: 200, type: 'kills',  target: 20 },
+    { id: 'play_2',   icon: '🎮', title: 'Regular',       desc: 'Play 2 games',         reward: 80,  type: 'games',  target: 2  },
+    { id: 'play_5',   icon: '🏟', title: 'Dedicated',     desc: 'Play 5 games',         reward: 150, type: 'games',  target: 5  },
+    { id: 'streak_3', icon: '⚡', title: 'Triple Threat', desc: 'Get a 3-kill streak',  reward: 75,  type: 'streak', target: 3  },
+    { id: 'streak_5', icon: '🌪', title: 'Unstoppable',   desc: 'Get a 5-kill streak',  reward: 125, type: 'streak', target: 5  },
+    { id: 'wins_1',   icon: '🏆', title: 'Champion',      desc: 'Win 1 match',          reward: 200, type: 'wins',   target: 1  },
+  ];
+
+  function getTodayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  }
+
+  function checkAndInitMissions() {
+    const today = getTodayKey();
+    if (stats.dailyDate !== today || !stats.dailyMissions) {
+      // Generate 3 missions based on daily seed
+      const seed = parseInt(today.replace(/-/g,'')) % ALL_MISSIONS.length;
+      const indices = [];
+      for (let i = 0; i < 3; i++) indices.push((seed + i * 3) % ALL_MISSIONS.length);
+      stats.dailyMissions = indices.map(i => ({ ...ALL_MISSIONS[i], progress: 0, done: false }));
+      stats.dailyDate = today;
+      saveStats(stats);
+    }
+  }
+
+  function renderMissions() {
+    const el = document.getElementById('missionsList');
+    if (!el) return;
+    checkAndInitMissions();
+    const missions = stats.dailyMissions || [];
+    if (!missions.length) { el.innerHTML = '<div style="color:var(--muted);font-size:0.78em;text-align:center;padding:12px">No missions today.</div>'; return; }
+    el.innerHTML = missions.map(m => {
+      const pct = Math.min(100, Math.round((m.progress || 0) / m.target * 100));
+      return `<div class="mission-card ${m.done ? 'done' : ''}">
+        <div class="mission-header">
+          <span class="mission-icon">${m.icon}</span>
+          <span class="mission-title">${m.title}${m.done ? ' ✓' : ''}</span>
+          <span class="mission-reward">+💰${m.reward}</span>
+        </div>
+        <div class="mission-desc">${m.desc}</div>
+        <div class="mission-progress-bg"><div class="mission-progress-fill" style="width:${pct}%"></div></div>
+        <div class="mission-progress-text">${Math.min(m.progress||0, m.target)} / ${m.target}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function updateMissionProgress(type, amount) {
+    checkAndInitMissions();
+    const missions = stats.dailyMissions || [];
+    let earned = 0;
+    missions.forEach(m => {
+      if (m.done || m.type !== type) return;
+      m.progress = (m.progress || 0) + amount;
+      if (m.progress >= m.target) {
+        m.done = true;
+        earned += m.reward;
+      }
+    });
+    stats.dailyMissions = missions;
+    if (earned > 0) {
+      stats.coins = (stats.coins || 0) + earned;
+      saveStats(stats);
+      showCoinsToast(`✅ Mission complete! +💰${earned}`, '#2ecc71');
+      updateProfileUI();
+    } else {
+      saveStats(stats);
+      renderMissions();
+    }
+  }
+
+  // ===================== COINS TOAST =====================
+  function showCoinsToast(msg, color) {
+    const el = document.getElementById('coinsToast');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = color || '#f1c40f';
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 2500);
+  }
+  window.buyWeapon = buyWeapon;
+  window.equipWeapon = equipWeapon;
 
   // ===================== SCREEN MANAGEMENT =====================
   let gameInstance = null;
@@ -876,14 +1486,7 @@
   let sessionDeaths = 0;
   let sessionScore = 0;
   let killStreak = 0;
-
-  function showLoadingScreen() {
-    document.getElementById('loadingScreen').style.display = 'flex';
-  }
-
-  function hideLoadingScreen() {
-    document.getElementById('loadingScreen').style.display = 'none';
-  }
+  let currentMode = 'tdm';
 
   function showHomePage() {
     document.getElementById('homePage').classList.add('show');
@@ -909,6 +1512,10 @@
     document.getElementById('gameCanvas').classList.add('active');
     document.getElementById('pauseOverlay').classList.remove('show');
     setHUDVisible(true);
+    // Show CTF HUD only in CTF mode
+    const ctfHud = document.getElementById('ctfHud');
+    if (currentMode === 'ctf') ctfHud.classList.add('active');
+    else ctfHud.classList.remove('active');
   }
 
   function showPause() {
@@ -925,6 +1532,10 @@
     document.querySelectorAll('.hud').forEach(el => {
       el.classList.toggle('active', visible);
     });
+    // CTF HUD only in CTF mode
+    if (visible && currentMode !== 'ctf') {
+      document.getElementById('ctfHud').classList.remove('active');
+    }
   }
 
   // ===================== PLAYER COUNT =====================
@@ -945,6 +1556,57 @@
       document.getElementById('serverStatusText').textContent = 'Server Offline';
       document.getElementById('playerCountDisplay').textContent = '--';
     }
+  }
+
+  // ===================== ROOM LIST =====================
+  const MODE_ICONS = { tdm: '⚔️', ffa: '💀', ctf: '🚩', pvc: '🤖' };
+  const MODE_LABELS = { tdm: 'Team Deathmatch', ffa: 'Free For All', ctf: 'Capture the Flag', pvc: 'vs Bots' };
+
+  async function fetchAndShowRooms() {
+    const base = SERVER_URL || '';
+    const listEl = document.getElementById('roomList');
+    listEl.innerHTML = '<div class="room-empty">Loading servers...</div>';
+    try {
+      const res = await fetch(`${base}/api/rooms`);
+      if (res.ok) {
+        const rooms = await res.json();
+        renderRoomList(rooms);
+      } else {
+        listEl.innerHTML = '<div class="room-empty">Failed to load servers.</div>';
+      }
+    } catch(e) {
+      listEl.innerHTML = '<div class="room-empty">Server offline.</div>';
+    }
+  }
+
+  function renderRoomList(rooms) {
+    const listEl = document.getElementById('roomList');
+    if (!rooms || rooms.length === 0) {
+      listEl.innerHTML = '<div class="room-empty">No servers found. Create one!</div>';
+      return;
+    }
+    listEl.innerHTML = rooms.map(r => {
+      const full = r.playerCount >= r.maxPlayers;
+      const icon = MODE_ICONS[r.mode] || '🎮';
+      const modeLabel = MODE_LABELS[r.mode] || r.mode;
+      const modeClass = r.mode || 'tdm';
+      return `<div class="room-card">
+        <div class="room-mode-badge ${modeClass}">${icon}</div>
+        <div class="room-info">
+          <div class="room-name">${escapeHtml(r.name)}</div>
+          <div class="room-meta">${modeLabel} · ${escapeHtml(r.mapLabel || 'FPS Arena')}</div>
+        </div>
+        <div class="room-players">
+          <span class="${full ? 'room-full' : ''}">${r.playerCount} / ${r.maxPlayers}</span>
+          <span style="font-size:0.7em;color:#8b949e">players</span>
+        </div>
+        <button class="btn-join" onclick="joinSpecificRoom('${r.id}')" ${full ? 'disabled' : ''}>${full ? 'FULL' : 'JOIN'}</button>
+      </div>`;
+    }).join('');
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   }
 
   // ===================== BACKGROUND ANIMATION =====================
@@ -1004,27 +1666,47 @@
   }
 
   // ===================== GAME INIT =====================
-  function startGame() {
-    if (gameInstance) {
-      // Already initialized, just reconnect pointer lock
-      requestPointerLock();
-      return;
-    }
-
-    showConnectingScreen('Connecting to server...');
+  function startGame(options = {}) {
+    showConnectingScreen('Connecting to HYPERFIRE...');
     hideHomePage();
+    closeAllModals();
     sessionKills = 0; sessionDeaths = 0; sessionScore = 0; killStreak = 0;
+    // Pass equipped weapons so server knows what to give player
+    window.PLAYER_WEAPONS = {
+      primary: stats.equippedPrimary || 'ak47',
+      secondary: stats.equippedSecondary || 'pistol'
+    };
+
+    if (gameInstance) {
+      if (gameInstance.socket && gameInstance.socket.socket) {
+        gameInstance.socket.socket.disconnect();
+      }
+      document.getElementById('gameCanvas').innerHTML = '';
+      gameInstance = null;
+    }
 
     gameInstance = new FPSGame(SERVER_URL);
 
     // Callback: called when server confirms join
     gameInstance.onJoined = function(data) {
+      currentMode = data.mode || 'tdm';
       hideConnectingScreen();
       showGame();
       stats.totalGames = (stats.totalGames || 0) + 1;
       stats.lastPlayed = new Date().toISOString();
       saveStats(stats);
       updateProfileUI();
+      // Track game mission
+      updateMissionProgress('games', 1);
+
+      // Update mode display in HUD
+      const modeEl = document.getElementById('modeDisplay');
+      if (modeEl) modeEl.textContent = (MODE_LABELS[currentMode] || currentMode).toUpperCase();
+
+      // Pause info
+      const prEl = document.getElementById('pauseRoomInfo');
+      if (prEl) prEl.textContent = `${escapeHtml(data.roomName || '')} · ${MODE_LABELS[currentMode] || currentMode}`;
+
       setTimeout(() => requestPointerLock(), 300);
     };
 
@@ -1042,9 +1724,16 @@
       killStreak++;
       sessionScore += 100;
       stats.totalKills = (stats.totalKills || 0) + 1;
+      stats.coins = (stats.coins || 0) + 10;
       if (killStreak > (stats.bestKillStreak || 0)) stats.bestKillStreak = killStreak;
       if (sessionScore > (stats.highestScore || 0)) stats.highestScore = sessionScore;
       saveStats(stats);
+      updateProfileUI();
+      showCoinsToast('+💰10', '#f1c40f');
+      // Mission progress
+      updateMissionProgress('kills', 1);
+      if (killStreak === 3) updateMissionProgress('streak', 3);
+      if (killStreak === 5) updateMissionProgress('streak', 5);
     };
 
     // Callback: player died
@@ -1058,11 +1747,17 @@
     // Callback: connection error fallback
     gameInstance.onConnectionError = function() {
       hideConnectingScreen();
-      showGame(); // Play offline with placeholder
+      showGame();
     };
 
     gameInstance.init();
     inGame = true;
+
+    // After init, send the join intent
+    if (options.roomId) {
+      // Will be sent after socket connects (handled in game.js via joinRoom event)
+      gameInstance._pendingJoinRoomId = options.roomId;
+    }
   }
 
   function requestPointerLock() {
@@ -1072,7 +1767,6 @@
 
   function quitToMenu() {
     inGame = false;
-    // Disconnect socket if needed
     if (gameInstance && gameInstance.socket && gameInstance.socket.socket) {
       gameInstance.socket.socket.disconnect();
     }
@@ -1084,6 +1778,24 @@
     showHomePage();
     fetchPlayerCount();
   }
+
+  function closeAllModals() {
+    document.getElementById('serverBrowserModal').classList.remove('show');
+    document.getElementById('createServerModal').classList.remove('show');
+  }
+
+  // ===================== JOIN BY ROOM ID =====================
+  function joinSpecificRoom(roomId) {
+    closeAllModals();
+    startGame({ roomId });
+    // Override the join to use joinRoom
+    const origInit = gameInstance.init.bind(gameInstance);
+    // Actually, wire it up after socket connects
+    gameInstance._pendingJoinRoomId = roomId;
+  }
+
+  // Patch FPSGame to support joinRoom flow
+  const _origFPSConnect = FPSGame.prototype.init;
 
   // ===================== EVENT LISTENERS =====================
 
@@ -1104,18 +1816,116 @@
     showHomePage();
   }
 
-  // Play button
-  document.getElementById('playBtn').addEventListener('click', () => {
+  // Quick play button
+  document.getElementById('quickPlayBtn').addEventListener('click', () => {
     window.PLAYER_NAME = stats.playerName;
-    startGame();
+    startGame({});
   });
 
-  // Edit username
-  document.getElementById('editUsernameBtn').addEventListener('click', () => {
+  // Server browser button
+  document.getElementById('serverBrowserBtn').addEventListener('click', () => {
+    document.getElementById('serverBrowserModal').classList.add('show');
+    fetchAndShowRooms();
+  });
+
+  // PvC button — create or join a bot server
+  document.getElementById('pvcBtn').addEventListener('click', async () => {
+    window.PLAYER_NAME = stats.playerName;
+    showConnectingScreen('Creating bot server...');
+    hideHomePage();
+    // Create a PvC room via REST, then join it
+    const base = SERVER_URL || '';
+    try {
+      const res = await fetch(`${base}/api/rooms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: `${stats.playerName || 'Player'}'s Bot Arena`, mode: 'pvc', map: 'arena', botCount: 4 })
+      });
+      if (res.ok) {
+        const room = await res.json();
+        startGame({ roomId: room.id });
+      } else {
+        startGame({});
+      }
+    } catch(e) {
+      startGame({});
+    }
+  });
+
+  // Close modals
+  document.getElementById('closeBrowserBtn').addEventListener('click', () => {
+    document.getElementById('serverBrowserModal').classList.remove('show');
+  });
+  document.getElementById('closeCreateBtn').addEventListener('click', () => {
+    document.getElementById('createServerModal').classList.remove('show');
+  });
+  document.getElementById('cancelCreateBtn').addEventListener('click', () => {
+    document.getElementById('createServerModal').classList.remove('show');
+  });
+  document.getElementById('refreshRoomsBtn').addEventListener('click', fetchAndShowRooms);
+
+  // Open create server modal from browser modal
+  document.getElementById('openCreateServerBtn').addEventListener('click', () => {
+    document.getElementById('serverBrowserModal').classList.remove('show');
+    document.getElementById('createServerModal').classList.add('show');
+  });
+
+  // Mode grid selection
+  document.querySelectorAll('.mode-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      document.querySelectorAll('.mode-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      opt.querySelector('input').checked = true;
+      const mode = opt.dataset.mode;
+      document.getElementById('botCountGroup').style.display = mode === 'pvc' ? 'block' : 'none';
+    });
+  });
+
+  // Bot count slider
+  document.getElementById('botCountSlider').addEventListener('input', function() {
+    document.getElementById('botCountVal').textContent = this.value;
+  });
+
+  // Max players slider
+  document.getElementById('maxPlayersSlider').addEventListener('input', function() {
+    document.getElementById('maxPlayersVal').textContent = this.value;
+  });
+
+  // Create & Join
+  document.getElementById('createAndJoinBtn').addEventListener('click', async () => {
+    const name = document.getElementById('newServerName').value.trim() || `${stats.playerName || 'Player'}'s Server`;
+    const mode = document.querySelector('.mode-option.selected')?.dataset.mode || 'tdm';
+    const maxPlayers = parseInt(document.getElementById('maxPlayersSlider').value) || 12;
+    const botCount = parseInt(document.getElementById('botCountSlider').value) || 4;
+
+    const base = SERVER_URL || '';
+    try {
+      const res = await fetch(`${base}/api/rooms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, mode, map: 'arena', maxPlayers, botCount })
+      });
+      if (res.ok) {
+        const room = await res.json();
+        window.PLAYER_NAME = stats.playerName;
+        closeAllModals();
+        startGame({ roomId: room.id });
+      }
+    } catch(e) {
+      // Fallback
+      window.PLAYER_NAME = stats.playerName;
+      closeAllModals();
+      startGame({});
+    }
+  });
+
+  // Edit username (from dropdown)
+  function openEditUsername() {
     document.getElementById('usernameInput').value = stats.playerName || '';
     hideHomePage();
     document.getElementById('usernameModal').classList.add('show');
-  });
+  }
+  document.getElementById('pdEditBtn').addEventListener('click', openEditUsername);
 
   // Pause: Resume
   document.getElementById('resumeBtn').addEventListener('click', () => {
@@ -1124,6 +1934,13 @@
 
   // Pause: Quit
   document.getElementById('quitBtn').addEventListener('click', quitToMenu);
+
+  // Close modals on overlay click
+  ['serverBrowserModal', 'createServerModal'].forEach(id => {
+    document.getElementById(id).addEventListener('click', function(e) {
+      if (e.target === this) this.classList.remove('show');
+    });
+  });
 
   // Scoreboard patch
   const _origUpdateScoreboard = UIManager.prototype.updateScoreboard;
@@ -1135,29 +1952,108 @@
     if (sbT) sbT.textContent = scores.terrorist || 0;
   };
 
+  // ===================== CTF HUD =====================
+  function updateCTFHud(flags) {
+    if (!flags) return;
+    function stateText(flag, team) {
+      if (flag.atBase) return 'AT BASE';
+      if (flag.carriedBy) return 'STOLEN';
+      return 'DROPPED';
+    }
+    function applyFlagStyle(el, flag, isCarriedByUs) {
+      if (flag.atBase) el.classList.remove('carried');
+      else el.classList.add('carried');
+    }
+    const ctEl = document.getElementById('ctFlagState');
+    const tEl = document.getElementById('tFlagState');
+    const ctCard = document.getElementById('ctFlagStatus');
+    const tCard = document.getElementById('tFlagStatus');
+    if (ctEl) ctEl.textContent = stateText(flags.ct);
+    if (tEl) tEl.textContent = stateText(flags.terrorist);
+    applyFlagStyle(ctCard, flags.ct);
+    applyFlagStyle(tCard, flags.terrorist);
+  }
+
+  // Expose for game.js
+  window.updateCTFHud = updateCTFHud;
+
+  function showFlagToast(msg, color) {
+    const el = document.getElementById('flagToast');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = color || '#fff';
+    el.classList.add('show');
+    clearTimeout(el._timer);
+    el._timer = setTimeout(() => el.classList.remove('show'), 3000);
+  }
+  window.showFlagToast = showFlagToast;
+
+  // Patch game.js socket setup to handle flagEvent, roomListUpdate, win detection
+  const _origSetupSocketEvents = FPSGame.prototype._setupSocketEvents;
+  FPSGame.prototype._setupSocketEvents = function() {
+    _origSetupSocketEvents.call(this);
+    const socket = this.socket;
+    const gameRef = this;
+
+    // Keep server browser room list fresh
+    socket.on('roomListUpdate', (rooms) => {
+      if (document.getElementById('serverBrowserModal').classList.contains('show')) {
+        renderRoomList(rooms);
+      }
+    });
+
+    // Win detection: first team to 30 kills (or 5 CTF captures) wins
+    const WIN_SCORE = { tdm: 30, ffa: 20, ctf: 5, pvc: 30 };
+    let matchWon = false;
+    socket.on('scoreUpdate', (scores) => {
+      if (matchWon || !inGame) return;
+      const limit = WIN_SCORE[currentMode] || 30;
+      const myTeam = gameRef.localTeam;
+      const myScore = scores[myTeam] || 0;
+      if (myScore >= limit) {
+        matchWon = true;
+        stats.totalWins = (stats.totalWins || 0) + 1;
+        stats.coins = (stats.coins || 0) + 200;
+        saveStats(stats);
+        updateProfileUI();
+        showCoinsToast('🏆 Match Won! +💰200', '#2ecc71');
+        updateMissionProgress('wins', 1);
+      }
+    });
+
+    // CTF flag event toasts
+    socket.on('flagEvent', (ev) => {
+      if (!ev) return;
+      const teamName = ev.team === 'ct' ? 'CT' : 'T';
+      const msgs = {
+        pickup:   `🏃 ${ev.playerName || 'Someone'} grabbed the ${teamName} flag!`,
+        dropped:  `⚠️ ${teamName} flag was dropped!`,
+        returned: `✅ ${teamName} flag returned to base.`,
+        captured: `🎉 ${ev.playerName || 'Someone'} captured the ${teamName} flag! +200pts`,
+      };
+      const colors = { pickup: '#f1c40f', dropped: '#e74c3c', returned: '#2ecc71', captured: '#2ecc71' };
+      showFlagToast(msgs[ev.type] || ev.type, colors[ev.type] || '#fff');
+    });
+  };
+
   // ===================== STARTUP =====================
   window.onload = function() {
     initBgAnimation();
-    hideLoadingScreen();
+    document.getElementById('loadingScreen').style.display = 'none';
 
-    // Load saved stats
     stats = loadStats();
 
     if (!stats.playerName) {
-      // First visit: show username modal
       document.getElementById('usernameModal').classList.add('show');
     } else {
-      // Returning player: go straight to home page
       window.PLAYER_NAME = stats.playerName;
       updateProfileUI();
       showHomePage();
     }
 
-    // Fetch server status
     fetchPlayerCount();
     setInterval(fetchPlayerCount, 10000);
 
-    // Try to load cloud stats for returning player
     if (stats.playerName) {
       loadCloudStats(stats.playerName).then(cloudData => {
         if (cloudData) {

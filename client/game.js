@@ -21,8 +21,18 @@ class FPSGame {
     this.localTeam = null;
     this.alive = true;
     this.health = 100;
-    this.weapon = 'rifle';
-    this.ammo = { rifle: { ammo: 30, maxAmmo: 90 }, pistol: { ammo: 12, maxAmmo: 36 } };
+    this.weapon = 'ak47';
+    this.primaryWeapon = 'ak47';
+    this.secondaryWeapon = 'pistol';
+    this.ammo = {
+      ak47:    { ammo: 30, maxAmmo: 90 },
+      m4a1:    { ammo: 30, maxAmmo: 90 },
+      awp:     { ammo: 5,  maxAmmo: 20 },
+      shotgun: { ammo: 8,  maxAmmo: 32 },
+      smg:     { ammo: 25, maxAmmo: 100 },
+      pistol:  { ammo: 12, maxAmmo: 36 },
+      deagle:  { ammo: 7,  maxAmmo: 28 },
+    };
     this.kills = 0;
 
     // Remote players
@@ -37,29 +47,51 @@ class FPSGame {
     this.lastShot = 0;
     this.reloading = false;
 
-    // Weapon fire rates
-    this.WEAPON_FIRE_RATE = { rifle: 100, pistol: 400 };
+    // Weapon fire rates (ms between shots)
+    this.WEAPON_FIRE_RATE = { ak47: 100, m4a1: 80, awp: 1500, shotgun: 900, smg: 55, pistol: 400, deagle: 500, rifle: 100 };
+    this.WEAPON_AUTO = { ak47: true, m4a1: true, smg: true, awp: false, shotgun: false, pistol: false, deagle: false, rifle: true };
 
     // Map constants
     this.MAP_SIZE = 50;
 
     // Wall collision data — must match server/gameloop.js WALLS array
+    // Dimensions match visual geometry in _buildMap()
     this.CLIENT_WALLS = [
+      // Central building
       { x: 0, z: 0, w: 6, d: 6 },
-      { x: -15, z: -20, w: 8, d: 2 },
-      { x: 15, z: -20, w: 8, d: 2 },
-      { x: -8, z: -30, w: 2, d: 8 },
-      { x: 8, z: -30, w: 2, d: 8 },
-      { x: -15, z: 20, w: 8, d: 2 },
-      { x: 15, z: 20, w: 8, d: 2 },
-      { x: -8, z: 30, w: 2, d: 8 },
-      { x: 8, z: 30, w: 2, d: 8 },
+      // CT long walls (visual depth 0.4)
+      { x: -15, z: -20, w: 8, d: 0.5 },
+      { x: 15, z: -20, w: 8, d: 0.5 },
+      // CT pillars (visual width 0.4)
+      { x: -8, z: -30, w: 0.5, d: 8 },
+      { x: 8, z: -30, w: 0.5, d: 8 },
+      // T long walls
+      { x: -15, z: 20, w: 8, d: 0.5 },
+      { x: 15, z: 20, w: 8, d: 0.5 },
+      // T pillars
+      { x: -8, z: 30, w: 0.5, d: 8 },
+      { x: 8, z: 30, w: 0.5, d: 8 },
+      // Mid crates (with stacked crate above — same footprint)
       { x: -10, z: 0, w: 3, d: 3 },
       { x: 10, z: 0, w: 3, d: 3 },
       { x: 0, z: -12, w: 3, d: 3 },
       { x: 0, z: 12, w: 3, d: 3 },
-      { x: -25, z: 0, w: 2, d: 20 },
-      { x: 25, z: 0, w: 2, d: 20 },
+      // Side long walls (visual width 0.4)
+      { x: -25, z: 0, w: 0.5, d: 20 },
+      { x: 25, z: 0, w: 0.5, d: 20 },
+      // Small barriers near center
+      { x: -5, z: -5, w: 0.4, d: 4 },
+      { x: 5, z: -5, w: 0.4, d: 4 },
+      { x: -5, z: 5, w: 0.4, d: 4 },
+      { x: 5, z: 5, w: 0.4, d: 4 },
+      // Scattered crates
+      { x: -18, z: -10, w: 1.5, d: 1.5 },
+      { x: -18, z: 10, w: 1.5, d: 1.5 },
+      { x: 18, z: -10, w: 1.5, d: 1.5 },
+      { x: 18, z: 10, w: 1.5, d: 1.5 },
+      // Spawn back walls
+      { x: 0, z: -45.5, w: 20, d: 0.6 },
+      { x: 0, z: 45.5, w: 20, d: 0.6 },
     ];
 
     // Particle effects
@@ -115,7 +147,6 @@ class FPSGame {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.1;
-    this.renderer.outputEncoding = THREE.sRGBEncoding;
     document.getElementById('gameCanvas').appendChild(this.renderer.domElement);
 
     window.addEventListener('resize', () => {
@@ -135,101 +166,142 @@ class FPSGame {
   }
 
   _buildGunModel() {
-    // Rifle
-    const rifleGroup = new THREE.Group();
+    const dark   = new THREE.MeshLambertMaterial({ color: 0x222222 });
+    const metal  = new THREE.MeshLambertMaterial({ color: 0x333333 });
+    const metal2 = new THREE.MeshLambertMaterial({ color: 0x444444 });
+    const wood   = new THREE.MeshLambertMaterial({ color: 0x5d3a1a });
+    const blk    = new THREE.MeshLambertMaterial({ color: 0x111111 });
+    const tan    = new THREE.MeshLambertMaterial({ color: 0x8b7355 });
 
-    const bodyGeo = new THREE.BoxGeometry(0.08, 0.08, 0.45);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, roughness: 0.4, metalness: 0.8 });
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    rifleGroup.add(body);
+    const box = (w, h, d, mat) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || metal);
+    const addParts = (group, parts) => { parts.forEach(([m, px, py, pz]) => { m.position.set(px, py, pz); group.add(m); }); };
 
-    const barrelGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.28, 8);
-    const barrel = new THREE.Mesh(barrelGeo, new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.3, metalness: 0.9 }));
-    barrel.rotation.x = Math.PI / 2;
-    barrel.position.set(0, 0.025, -0.32);
-    rifleGroup.add(barrel);
+    this.weaponModels = {};
 
-    const stockGeo = new THREE.BoxGeometry(0.06, 0.1, 0.15);
-    const stock = new THREE.Mesh(stockGeo, new THREE.MeshStandardMaterial({ color: 0x4a2a0e, roughness: 0.9, metalness: 0.0 }));
-    stock.position.set(0, -0.02, 0.2);
-    rifleGroup.add(stock);
+    // --- AK-47 ---
+    const ak = new THREE.Group();
+    addParts(ak, [
+      [box(0.08, 0.08, 0.5, metal), 0, 0, 0],
+      [box(0.03, 0.03, 0.28, dark), 0, 0.025, -0.32],
+      [box(0.06, 0.1, 0.16, wood), 0, -0.02, 0.22],
+      [box(0.04, 0.13, 0.06, dark), 0, -0.095, 0.02],
+      [box(0.07, 0.04, 0.12, tan), 0, 0.06, -0.02],
+    ]);
+    ak.position.set(0.2, -0.18, -0.38); this.camera.add(ak);
+    this.weaponModels.ak47 = ak;
 
-    const magGeo = new THREE.BoxGeometry(0.04, 0.12, 0.06);
-    const mag = new THREE.Mesh(magGeo, new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.5, metalness: 0.6 }));
-    mag.position.set(0, -0.09, 0.02);
-    rifleGroup.add(mag);
+    // --- M4A1 ---
+    const m4 = new THREE.Group();
+    addParts(m4, [
+      [box(0.075, 0.075, 0.48, metal2), 0, 0, 0],
+      [box(0.025, 0.025, 0.3, dark), 0, 0.025, -0.32],
+      [box(0.055, 0.09, 0.14, dark), 0, -0.018, 0.2],
+      [box(0.04, 0.12, 0.055, dark), 0, -0.09, 0.02],
+      [box(0.065, 0.035, 0.1, metal), 0, 0.055, -0.02],
+      [box(0.02, 0.02, 0.08, dark), -0.03, 0.048, -0.3], // sight
+    ]);
+    m4.position.set(0.2, -0.18, -0.38); m4.visible = false; this.camera.add(m4);
+    this.weaponModels.m4a1 = m4;
 
-    rifleGroup.position.set(0.2, -0.18, -0.35);
-    this.rifleModel = rifleGroup;
-    this.camera.add(rifleGroup);
+    // --- AWP (Sniper) ---
+    const awp = new THREE.Group();
+    addParts(awp, [
+      [box(0.07, 0.07, 0.7, metal), 0, 0, 0],
+      [box(0.025, 0.025, 0.5, dark), 0, 0.025, -0.55],
+      [box(0.055, 0.1, 0.18, wood), 0, -0.025, 0.3],
+      [box(0.035, 0.1, 0.05, dark), 0, -0.075, 0.05],
+      [box(0.04, 0.06, 0.22, blk), 0, 0.065, -0.05], // scope
+      [box(0.03, 0.03, 0.18, blk), 0, 0.065, -0.05], // scope lens
+    ]);
+    awp.position.set(0.22, -0.18, -0.55); awp.visible = false; this.camera.add(awp);
+    this.weaponModels.awp = awp;
 
-    // Pistol
-    const pistolGroup = new THREE.Group();
-    const pBody = new THREE.Mesh(
-      new THREE.BoxGeometry(0.055, 0.12, 0.2),
-      new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.4, metalness: 0.8 })
-    );
-    pistolGroup.add(pBody);
-    const pBarrelGeo = new THREE.CylinderGeometry(0.012, 0.012, 0.14, 8);
-    const pBarrel = new THREE.Mesh(pBarrelGeo, new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.3, metalness: 0.9 }));
-    pBarrel.rotation.x = Math.PI / 2;
-    pBarrel.position.set(0, 0.04, -0.15);
-    pistolGroup.add(pBarrel);
-    const pGrip = new THREE.Mesh(
-      new THREE.BoxGeometry(0.05, 0.1, 0.07),
-      new THREE.MeshStandardMaterial({ color: 0x3a1e08, roughness: 0.9, metalness: 0.0 })
-    );
-    pGrip.position.set(0, -0.1, 0.04);
-    pistolGroup.add(pGrip);
+    // --- Shotgun ---
+    const sg = new THREE.Group();
+    addParts(sg, [
+      [box(0.1, 0.09, 0.45, dark), 0, 0, 0],
+      [box(0.06, 0.06, 0.22, metal), 0, 0.02, -0.3],
+      [box(0.09, 0.12, 0.18, wood), 0, -0.025, 0.18],
+      [box(0.045, 0.06, 0.04, blk), 0, -0.05, -0.02],
+    ]);
+    sg.position.set(0.2, -0.18, -0.35); sg.visible = false; this.camera.add(sg);
+    this.weaponModels.shotgun = sg;
 
-    pistolGroup.position.set(0.15, -0.18, -0.3);
-    pistolGroup.visible = false;
-    this.pistolModel = pistolGroup;
-    this.camera.add(pistolGroup);
+    // --- SMG (UMP-45) ---
+    const smg = new THREE.Group();
+    addParts(smg, [
+      [box(0.07, 0.07, 0.36, metal2), 0, 0, 0],
+      [box(0.025, 0.025, 0.18, dark), 0, 0.02, -0.25],
+      [box(0.05, 0.09, 0.1, dark), 0, -0.018, 0.14],
+      [box(0.035, 0.1, 0.05, dark), 0, -0.082, 0.03],
+    ]);
+    smg.position.set(0.18, -0.18, -0.3); smg.visible = false; this.camera.add(smg);
+    this.weaponModels.smg = smg;
+
+    // --- Pistol (Glock) ---
+    const pistol = new THREE.Group();
+    addParts(pistol, [
+      [box(0.055, 0.12, 0.2, metal2), 0, 0, 0],
+      [box(0.03, 0.03, 0.12, dark), 0, 0.04, -0.14],
+      [box(0.05, 0.1, 0.07, wood), 0, -0.1, 0.04],
+    ]);
+    pistol.position.set(0.15, -0.18, -0.3); pistol.visible = false; this.camera.add(pistol);
+    this.weaponModels.pistol = pistol;
+
+    // --- Desert Eagle ---
+    const deagle = new THREE.Group();
+    addParts(deagle, [
+      [box(0.065, 0.14, 0.25, dark), 0, 0, 0],
+      [box(0.035, 0.035, 0.15, metal), 0, 0.05, -0.18],
+      [box(0.055, 0.11, 0.09, dark), 0, -0.12, 0.06],
+      [box(0.04, 0.06, 0.04, blk), 0, -0.045, 0.02],
+    ]);
+    deagle.position.set(0.15, -0.18, -0.3); deagle.visible = false; this.camera.add(deagle);
+    this.weaponModels.deagle = deagle;
+
+    // Aliases for backward compat
+    this.rifleModel  = this.weaponModels.ak47;
+    this.pistolModel = this.weaponModels.pistol;
   }
 
   // ---- Scene ----
 
   _initScene() {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x6ab0d4);
-    this.scene.fog = new THREE.FogExp2(0x6ab0d4, 0.012);
+    this.scene.background = new THREE.Color(0x6a9ec2);
+    this.scene.fog = new THREE.FogExp2(0x6a9ec2, 0.008);
   }
 
   _initLights() {
-    // Hemisphere light: sky blue above, warm ground below
-    const hemi = new THREE.HemisphereLight(0x87ceeb, 0x8b7355, 0.5);
+    // Hemisphere light: sky above, ground bounce below
+    const hemi = new THREE.HemisphereLight(0x87b8d8, 0x806b50, 0.7);
     this.scene.add(hemi);
 
-    // Ambient fill
-    const ambient = new THREE.AmbientLight(0xfff5e0, 0.4);
-    this.scene.add(ambient);
-
-    // Sun — warm directional light
-    const sun = new THREE.DirectionalLight(0xfff4d6, 1.2);
+    // Main sun — warm directional light
+    const sun = new THREE.DirectionalLight(0xffe8c0, 1.4);
     sun.position.set(30, 60, 20);
     sun.castShadow = true;
     sun.shadow.mapSize.width = 2048;
     sun.shadow.mapSize.height = 2048;
     sun.shadow.camera.near = 0.5;
-    sun.shadow.camera.far = 200;
-    sun.shadow.camera.left = -60;
-    sun.shadow.camera.right = 60;
-    sun.shadow.camera.top = 60;
-    sun.shadow.camera.bottom = -60;
-    sun.shadow.bias = -0.001;
+    sun.shadow.camera.far = 220;
+    sun.shadow.camera.left = -70;
+    sun.shadow.camera.right = 70;
+    sun.shadow.camera.top = 70;
+    sun.shadow.camera.bottom = -70;
+    sun.shadow.bias = -0.0003;
     this.scene.add(sun);
 
-    // Soft fill from opposite side
-    const fill = new THREE.DirectionalLight(0x9ab8d4, 0.3);
-    fill.position.set(-20, 20, -20);
+    // Subtle fill light from opposite side
+    const fill = new THREE.DirectionalLight(0xc0d8f0, 0.3);
+    fill.position.set(-20, 20, -30);
     this.scene.add(fill);
   }
 
   _buildMap() {
     const self = this;
 
-    // Textures (procedural)
+    // Procedural textures
     function makeTexture(color1, color2, size, pattern) {
       const canvas = document.createElement('canvas');
       canvas.width = 128; canvas.height = 128;
@@ -238,35 +310,34 @@ class FPSGame {
       ctx.fillRect(0, 0, 128, 128);
       if (pattern === 'grid') {
         ctx.strokeStyle = color2;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 1;
         for (let i = 0; i <= 128; i += 32) {
           ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 128); ctx.stroke();
           ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(128, i); ctx.stroke();
         }
-        // subtle noise
-        for (let px = 0; px < 128; px += 2) {
-          for (let py = 0; py < 128; py += 2) {
-            const v = (Math.random() * 0.06 - 0.03);
-            ctx.fillStyle = `rgba(${v > 0 ? 255 : 0},${v > 0 ? 255 : 0},${v > 0 ? 255 : 0},${Math.abs(v)})`;
-            ctx.fillRect(px, py, 2, 2);
-          }
+      } else if (pattern === 'concrete') {
+        // Subtle noise for concrete look
+        for (let x = 0; x < 128; x += 4) for (let y = 0; y < 128; y += 4) {
+          const v = Math.random() * 12 - 6;
+          ctx.fillStyle = `rgba(${v > 0 ? 255 : 0},${v > 0 ? 255 : 0},${v > 0 ? 255 : 0},${Math.abs(v)/100})`;
+          ctx.fillRect(x, y, 4, 4);
+        }
+        ctx.strokeStyle = color2; ctx.lineWidth = 1;
+        for (let i = 0; i <= 128; i += 32) {
+          ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 128); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(128, i); ctx.stroke();
         }
       } else if (pattern === 'checker') {
         for (let x = 0; x < 4; x++) for (let y = 0; y < 4; y++) {
-          if ((x + y) % 2 === 0) {
-            ctx.fillStyle = color2;
-            ctx.fillRect(x * 32, y * 32, 32, 32);
-          }
+          if ((x + y) % 2 === 0) { ctx.fillStyle = color2; ctx.fillRect(x * 32, y * 32, 32, 32); }
         }
-      } else if (pattern === 'brick') {
-        ctx.fillStyle = color2;
-        const bw = 42, bh = 20;
-        for (let row = 0; row < 7; row++) {
-          const offset = (row % 2) * (bw / 2);
-          for (let col = -1; col < 4; col++) {
-            const x = col * bw + offset, y = row * bh;
-            ctx.fillRect(x + 2, y + 2, bw - 4, bh - 4);
-          }
+      } else if (pattern === 'planks') {
+        // Wooden planks
+        for (let y = 0; y < 128; y += 16) {
+          const off = (Math.floor(y / 16) % 2) * 64;
+          ctx.fillStyle = color2;
+          ctx.fillRect(0, y, 128, 1);
+          for (let x = off; x < 128; x += 64) ctx.fillRect(x, y, 1, 16);
         }
       }
       const tex = new THREE.CanvasTexture(canvas);
@@ -275,19 +346,14 @@ class FPSGame {
       return tex;
     }
 
-    const floorTex = makeTexture('#7a7a7a', '#666666', 20, 'grid');
-    const wallTex = makeTexture('#b0a898', '#9a9088', 4, 'brick');
-    const ctTex = makeTexture('#1a3a5c', '#1e4a7c', 8, 'grid');
-    const tTex = makeTexture('#5c2a1a', '#7c3a1e', 8, 'grid');
-    const boxTex = makeTexture('#9b7a28', '#7a5c10', 2, 'checker');
+    const floorTex  = makeTexture('#7a7a7a', '#5a5a5a', 25, 'grid');
+    const wallTex   = makeTexture('#9a9590', '#7a7570', 3, 'concrete');
+    const ctTex     = makeTexture('#0d2a4a', '#0f3560', 6, 'grid');
+    const tTex      = makeTexture('#4a1008', '#6a1810', 6, 'grid');
+    const boxTex    = makeTexture('#9a7828', '#7a5818', 3, 'planks');
 
-    function makeMat(tex, color, roughness, metalness) {
-      return new THREE.MeshStandardMaterial({
-        map: tex,
-        color: color || 0xffffff,
-        roughness: roughness !== undefined ? roughness : 0.85,
-        metalness: metalness !== undefined ? metalness : 0.05
-      });
+    function makeMat(tex, color) {
+      return new THREE.MeshLambertMaterial({ map: tex, color: color || 0xffffff });
     }
 
     // Floor
@@ -470,8 +536,8 @@ class FPSGame {
       if (e.code === 'KeyR' && !this.reloading && this.alive) {
         this.socket.sendReload();
       }
-      if (e.code === 'Digit1') this._switchWeapon('rifle');
-      if (e.code === 'Digit2') this._switchWeapon('pistol');
+      if (e.code === 'Digit1') this._switchToPrimary();
+      if (e.code === 'Digit2') this._switchToSecondary();
     });
 
     document.addEventListener('keyup', (e) => {
@@ -494,7 +560,7 @@ class FPSGame {
       }
       if (e.button === 0 && this.alive) {
         this._shoot();
-        if (WEAPON_AUTO[this.weapon]) {
+        if (this.WEAPON_AUTO[this.weapon]) {
           this.shootHeld = true;
         }
       }
@@ -511,21 +577,27 @@ class FPSGame {
 
     document.addEventListener('wheel', (e) => {
       if (!this.pointerLocked) return;
-      if (e.deltaY < 0) this._switchWeapon('rifle');
-      else this._switchWeapon('pistol');
+      if (e.deltaY < 0) this._switchToPrimary();
+      else this._switchToSecondary();
     });
   }
 
   _switchWeapon(weapon) {
     if (this.weapon === weapon || this.reloading) return;
+    if (!this.ammo[weapon]) return; // weapon not in loadout
     this.weapon = weapon;
-    this.rifleModel.visible = weapon === 'rifle';
-    this.pistolModel.visible = weapon === 'pistol';
+    // Hide all models, show current
+    for (const [k, m] of Object.entries(this.weaponModels)) {
+      m.visible = (k === weapon);
+    }
     this.ui.updateWeapon(weapon);
     const a = this.ammo[weapon];
-    this.ui.updateAmmo(a.ammo, a.maxAmmo);
+    if (a) this.ui.updateAmmo(a.ammo, a.maxAmmo);
     this.socket.switchWeapon(weapon);
   }
+
+  _switchToPrimary() { this._switchWeapon(this.primaryWeapon); }
+  _switchToSecondary() { this._switchWeapon(this.secondaryWeapon); }
 
   // ---- Shooting ----
 
@@ -568,7 +640,8 @@ class FPSGame {
     const flashGeo = new THREE.SphereGeometry(0.05, 4, 4);
     const flashMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
     const flash = new THREE.Mesh(flashGeo, flashMat);
-    const gunPos = this.weapon === 'rifle' ? { x: 0.2, y: -0.16, z: -0.58 } : { x: 0.15, y: -0.15, z: -0.42 };
+    const secondary = new Set(['pistol','deagle']);
+    const gunPos = secondary.has(this.weapon) ? { x: 0.15, y: -0.15, z: -0.42 } : { x: 0.2, y: -0.16, z: -0.58 };
     flash.position.set(gunPos.x, gunPos.y, gunPos.z);
     this.camera.add(flash);
     setTimeout(() => this.camera.remove(flash), 50);
@@ -581,7 +654,7 @@ class FPSGame {
   }
 
   _recoilAnim() {
-    const model = this.weapon === 'rifle' ? this.rifleModel : this.pistolModel;
+    const model = this.weaponModels[this.weapon] || this.rifleModel;
     const origY = model.position.y;
     const origZ = model.position.z;
     model.position.y += 0.03;
@@ -654,9 +727,8 @@ class FPSGame {
     const group = new THREE.Group();
 
     // Body
-    const bodyMat = new THREE.MeshStandardMaterial({
-      color: team === 'ct' ? 0x1a3a7c : 0x7c3a1a,
-      roughness: 0.8, metalness: 0.1
+    const bodyMat = new THREE.MeshLambertMaterial({
+      color: team === 'ct' ? 0x1a3a7c : 0x7c3a1a
     });
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.0, 0.3), bodyMat);
     body.position.y = 0.5;
@@ -664,16 +736,15 @@ class FPSGame {
     group.add(body);
 
     // Head
-    const headMat = new THREE.MeshStandardMaterial({ color: 0xddb380, roughness: 0.9, metalness: 0.0 });
+    const headMat = new THREE.MeshLambertMaterial({ color: 0xffcc99 });
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), headMat);
     head.position.y = 1.3;
     head.castShadow = true;
     group.add(head);
 
     // Helmet
-    const helmetMat = new THREE.MeshStandardMaterial({
-      color: team === 'ct' ? 0x1e4a99 : 0x664422,
-      roughness: 0.5, metalness: 0.3
+    const helmetMat = new THREE.MeshLambertMaterial({
+      color: team === 'ct' ? 0x2255aa : 0x553311
     });
     const helmet = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.25, 0.45), helmetMat);
     helmet.position.y = 1.55;
@@ -692,13 +763,13 @@ class FPSGame {
     group.add(rArm);
 
     // Gun (carried by remote player)
-    const gunMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.8 });
+    const gunMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
     const gun = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.4), gunMat);
     gun.position.set(0.4, 0.8, -0.3);
     group.add(gun);
 
     // Legs
-    const legMat = new THREE.MeshStandardMaterial({ color: team === 'ct' ? 0x0a1a3c : 0x2a1000, roughness: 0.9, metalness: 0.05 });
+    const legMat = new THREE.MeshLambertMaterial({ color: team === 'ct' ? 0x0a1a3c : 0x2a1000 });
     const lLeg = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.7, 0.25), legMat);
     lLeg.position.set(-0.17, -0.35, 0);
     lLeg.castShadow = true;
@@ -770,45 +841,37 @@ class FPSGame {
   _setupSocketEvents() {
     this.socket.on('connect', () => {
       const name = window.PLAYER_NAME || 'Player' + Math.floor(Math.random() * 1000);
-      this.socket.join(name);
-      const status = document.getElementById('loadingStatus');
-      if (status) status.textContent = 'Joining server...';
-    });
-
-    this.socket.on('connect_error', () => {
-      const status = document.getElementById('loadingStatus');
-      if (status) {
-        status.textContent = 'Connection failed — retrying...';
-        status.style.color = '#e74c3c';
-      }
-    });
-
-    this.socket.on('disconnect', () => {
-      if (!document.getElementById('loadingScreen').style.display ||
-          document.getElementById('loadingScreen').style.display === 'none') return;
-      const status = document.getElementById('loadingStatus');
-      if (status) {
-        status.textContent = 'Disconnected — check your connection';
-        status.style.color = '#e74c3c';
+      const weapons = window.PLAYER_WEAPONS || { primary: 'ak47', secondary: 'pistol' };
+      if (this._pendingJoinRoomId) {
+        this.socket.joinRoom(name, this._pendingJoinRoomId, weapons);
+      } else {
+        this.socket.quickPlay(name, weapons);
       }
     });
 
     this.socket.on('joined', (data) => {
       this.localId = data.id;
       this.localTeam = data.team;
+      this.localMode = data.mode || 'tdm';
       this.ui.localPlayerId = data.id;
 
       this.camera.position.set(data.x, data.y + 0.6, data.z);
       this.yaw = data.yaw || 0;
       this.pitch = 0;
 
-      this.ammo.rifle = { ammo: data.ammo, maxAmmo: data.maxAmmo };
-      this.ammo.pistol = { ammo: data.pistolAmmo, maxAmmo: data.pistolMaxAmmo };
+      this.primaryWeapon = data.primaryWeapon || 'ak47';
+      this.secondaryWeapon = data.secondaryWeapon || 'pistol';
+      this.weapon = this.primaryWeapon;
+      this.ammo[this.primaryWeapon] = { ammo: data.ammo, maxAmmo: data.maxAmmo };
+      this.ammo[this.secondaryWeapon] = { ammo: data.pistolAmmo, maxAmmo: data.pistolMaxAmmo };
+
+      // Show correct gun model
+      for (const [k, m] of Object.entries(this.weaponModels)) m.visible = (k === this.weapon);
 
       this.ui.updateTeam(data.team);
       this.ui.updateHealth(100);
       this.ui.updateAmmo(data.ammo, data.maxAmmo);
-      this.ui.updateWeapon('rifle');
+      this.ui.updateWeapon(this.primaryWeapon);
 
       if (this.onJoined) this.onJoined(data);
     });
@@ -825,6 +888,11 @@ class FPSGame {
       if (me) {
         this.kills = me.kills;
         this.ui.updateKillScore(me.kills);
+      }
+
+      // CTF flag HUD
+      if (data.flags && window.updateCTFHud) {
+        window.updateCTFHud(data.flags);
       }
     });
 
@@ -864,11 +932,17 @@ class FPSGame {
       this.health = 100;
       this.reloading = false;
       this.camera.position.set(data.x, data.y + 0.6, data.z);
-      this.ammo.rifle = { ammo: 30, maxAmmo: 90 };
-      this.ammo.pistol = { ammo: 12, maxAmmo: 36 };
-      this._switchWeapon('rifle');
+      // Reset ammo from weapon defaults
+      const WFR = this.WEAPON_FIRE_RATE;
+      const AMMO_DEFAULTS = { ak47:{ammo:30,maxAmmo:90}, m4a1:{ammo:30,maxAmmo:90}, awp:{ammo:5,maxAmmo:20}, shotgun:{ammo:8,maxAmmo:32}, smg:{ammo:25,maxAmmo:100}, pistol:{ammo:12,maxAmmo:36}, deagle:{ammo:7,maxAmmo:28} };
+      this.ammo[this.primaryWeapon] = { ...(AMMO_DEFAULTS[this.primaryWeapon] || AMMO_DEFAULTS.ak47) };
+      this.ammo[this.secondaryWeapon] = { ...(AMMO_DEFAULTS[this.secondaryWeapon] || AMMO_DEFAULTS.pistol) };
+      this.weapon = this.primaryWeapon;
+      for (const [k, m] of Object.entries(this.weaponModels)) m.visible = (k === this.weapon);
       this.ui.updateHealth(100);
-      this.ui.updateAmmo(30, 90);
+      const a = this.ammo[this.weapon];
+      this.ui.updateAmmo(a.ammo, a.maxAmmo);
+      this.ui.updateWeapon(this.weapon);
       this.ui.hideDeathScreen();
     });
 
@@ -895,10 +969,10 @@ class FPSGame {
     });
 
     this.socket.on('ammoUpdate', (data) => {
-      this.ammo.rifle = { ammo: data.ammo, maxAmmo: data.maxAmmo };
-      this.ammo.pistol = { ammo: data.pistolAmmo, maxAmmo: data.pistolMaxAmmo };
+      this.ammo[this.primaryWeapon] = { ammo: data.ammo, maxAmmo: data.maxAmmo };
+      this.ammo[this.secondaryWeapon] = { ammo: data.pistolAmmo, maxAmmo: data.pistolMaxAmmo };
       const a = this.ammo[this.weapon];
-      this.ui.updateAmmo(a.ammo, a.maxAmmo);
+      if (a) this.ui.updateAmmo(a.ammo, a.maxAmmo);
     });
 
     this.socket.on('reloadStart', (data) => {
@@ -931,7 +1005,7 @@ class FPSGame {
     this._updateTracers();
 
     // Auto-fire for automatic weapons
-    if (this.shootHeld && this.weapon === 'rifle' && this.alive && this.pointerLocked) {
+    if (this.shootHeld && this.WEAPON_AUTO[this.weapon] && this.alive && this.pointerLocked) {
       this._shoot();
     }
 
@@ -974,8 +1048,9 @@ class FPSGame {
       const cos = Math.cos(this.yaw);
       const sin = Math.sin(this.yaw);
 
-      if (this.keys['KeyW']) { dx += sin; dz += cos; }
-      if (this.keys['KeyS']) { dx -= sin; dz -= cos; }
+      // Camera looks at -Z when yaw=0, so forward = (-sin, 0, -cos)
+      if (this.keys['KeyW']) { dx -= sin; dz -= cos; }
+      if (this.keys['KeyS']) { dx += sin; dz += cos; }
       if (this.keys['KeyA']) { dx -= cos; dz += sin; }
       if (this.keys['KeyD']) { dx += cos; dz -= sin; }
 
@@ -1029,7 +1104,6 @@ class FPSGame {
   }
 }
 
-// Weapon auto fire flags
-const WEAPON_AUTO = { rifle: true, pistol: false };
+// (WEAPON_AUTO is now instance property on FPSGame)
 
 window.FPSGame = FPSGame;
