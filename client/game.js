@@ -158,7 +158,7 @@ class FPSGame {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.4;
+    this.renderer.toneMappingExposure = 1.05;
     this.renderer.outputEncoding = THREE.sRGBEncoding;
     document.getElementById('gameCanvas').appendChild(this.renderer.domElement);
 
@@ -319,69 +319,47 @@ class FPSGame {
   }
 
   _initLights() {
-    // Ambient base
-    const ambient = new THREE.AmbientLight(0x223344, 0.6);
+    // Indoor arena — no direct sun, lit by ceiling fixtures
+    const ambient = new THREE.AmbientLight(0x303848, 0.9);
     this.scene.add(ambient);
 
-    // Hemisphere: cool night sky / warm ground bounce
-    const hemi = new THREE.HemisphereLight(0x334466, 0x4a3520, 0.8);
-    this.scene.add(hemi);
+    // Soft overhead fill (simulates ceiling bounce, no shadows)
+    const overhead = new THREE.DirectionalLight(0xc8d8f0, 0.7);
+    overhead.position.set(0, 10, 0);
+    overhead.castShadow = true;
+    overhead.shadow.mapSize.width = 2048;
+    overhead.shadow.mapSize.height = 2048;
+    overhead.shadow.camera.near = 1;
+    overhead.shadow.camera.far = 100;
+    overhead.shadow.camera.left = -60;
+    overhead.shadow.camera.right = 60;
+    overhead.shadow.camera.top = 60;
+    overhead.shadow.camera.bottom = -60;
+    overhead.shadow.bias = -0.0003;
+    this.scene.add(overhead);
 
-    // Main overhead directional (stadium-style)
-    const sun = new THREE.DirectionalLight(0xddeeff, 1.8);
-    sun.position.set(10, 80, 10);
-    sun.castShadow = true;
-    sun.shadow.mapSize.width = 4096;
-    sun.shadow.mapSize.height = 4096;
-    sun.shadow.camera.near = 0.5;
-    sun.shadow.camera.far = 250;
-    sun.shadow.camera.left = -75;
-    sun.shadow.camera.right = 75;
-    sun.shadow.camera.top = 75;
-    sun.shadow.camera.bottom = -75;
-    sun.shadow.bias = -0.0002;
-    this.scene.add(sun);
-
-    // CT side — blue accent light
-    const ctLight = new THREE.PointLight(0x4488ff, 2.5, 35);
-    ctLight.position.set(0, 8, -38);
+    // CT base — cool blue accent
+    const ctLight = new THREE.PointLight(0x3366cc, 1.4, 30);
+    ctLight.position.set(0, 5, -38);
     this.scene.add(ctLight);
 
-    // T side — red accent light
-    const tLight = new THREE.PointLight(0xff4422, 2.5, 35);
-    tLight.position.set(0, 8, 38);
+    // T base — warm red accent
+    const tLight = new THREE.PointLight(0xcc3311, 1.4, 30);
+    tLight.position.set(0, 5, 38);
     this.scene.add(tLight);
 
-    // Mid center — warm fill
-    const midLight = new THREE.PointLight(0xffcc44, 1.2, 20);
-    midLight.position.set(0, 6, 0);
-    this.scene.add(midLight);
-
-    // Fill from opposite side
-    const fill = new THREE.DirectionalLight(0x7799cc, 0.4);
-    fill.position.set(-30, 15, -20);
-    this.scene.add(fill);
-
-    // Emissive ceiling light panels — glow with bloom
-    const panelGeo = new THREE.PlaneGeometry(4, 2);
-    const panelPositions = [
-      [0, 5.9, 0, 0xaaddff],
-      [0, 5.9, -38, 0x4488ff],  // CT base
-      [0, 5.9,  38, 0xff4422],  // T base
-      [-15, 5.9, -20, 0x99bbff],
-      [15, 5.9,  20, 0xff8866],
-      [-15, 5.9,  20, 0xff6644],
-      [15, 5.9, -20, 0x6699ff],
+    // Mid ceiling fill lights (match strip positions)
+    const fills = [
+      [0, 5.5, 0, 0xd0e0f0, 0.9, 22],
+      [-20, 5.5, -15, 0xc8d4e8, 0.7, 18],
+      [ 20, 5.5, -15, 0xc8d4e8, 0.7, 18],
+      [-20, 5.5,  15, 0xd0c8e0, 0.7, 18],
+      [ 20, 5.5,  15, 0xd0c8e0, 0.7, 18],
     ];
-    for (const [x, y, z, col] of panelPositions) {
-      const mat = new THREE.MeshStandardMaterial({
-        color: col, emissive: new THREE.Color(col), emissiveIntensity: 2.5,
-        side: THREE.DoubleSide
-      });
-      const panel = new THREE.Mesh(panelGeo, mat);
-      panel.rotation.x = Math.PI / 2;
-      panel.position.set(x, y, z);
-      this.scene.add(panel);
+    for (const [x, y, z, col, intensity, dist] of fills) {
+      const l = new THREE.PointLight(col, intensity, dist);
+      l.position.set(x, y, z);
+      this.scene.add(l);
     }
   }
 
@@ -391,12 +369,12 @@ class FPSGame {
     const composer = new THREE.EffectComposer(this.renderer);
     composer.addPass(new THREE.RenderPass(this.scene, this.camera));
 
-    // Bloom — lights, emissive panels, muzzle flash all glow
+    // Bloom — subtle glow on emissive strips and muzzle flash
     this.bloomPass = new THREE.UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.5,   // strength
-      0.5,   // radius
-      0.80   // threshold
+      0.28,  // strength (was 0.5 — much more subtle)
+      0.45,  // radius
+      0.88   // threshold (was 0.80 — only brightest emissives bloom)
     );
     composer.addPass(this.bloomPass);
 
@@ -621,7 +599,7 @@ class FPSGame {
 
     // ---- Ceiling light strips ----
     const lightStripMat = new THREE.MeshStandardMaterial({
-      color: 0xffffff, emissive: new THREE.Color(0xddeeff), emissiveIntensity: 3.5,
+      color: 0xffffff, emissive: new THREE.Color(0xc8dcf0), emissiveIntensity: 1.8,
       roughness: 0.5, metalness: 0.3
     });
     const lightHousingMat = new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 0.5, metalness: 0.6 });
