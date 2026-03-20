@@ -93,6 +93,12 @@ const SPAWN_POINTS = {
   ]
 };
 
+// CTF flag base positions
+const CTF_FLAG_BASES = {
+  ct: { x: 0, z: -36 },
+  terrorist: { x: 0, z: 36 }
+};
+
 function collidesWithWall(x, z, radius) {
   if (x - radius < MAP_BOUNDS.minX || x + radius > MAP_BOUNDS.maxX) return true;
   if (z - radius < MAP_BOUNDS.minZ || z + radius > MAP_BOUNDS.maxZ) return true;
@@ -111,7 +117,7 @@ function collidesWithWall(x, z, radius) {
 }
 
 function getSpawnPoint(team, usedSpawns) {
-  const spawns = SPAWN_POINTS[team];
+  const spawns = SPAWN_POINTS[team] || SPAWN_POINTS.ct;
   for (const sp of spawns) {
     const key = `${sp.x},${sp.z}`;
     if (!usedSpawns.has(key)) {
@@ -153,16 +159,39 @@ function createPlayer(id, name, team) {
     moveLeft: false,
     moveRight: false,
     jump: false,
+    isBot: false,
   };
 }
 
+let _botCounter = 0;
+
 class GameLoop {
-  constructor(io) {
+  constructor(io, roomId, mode) {
     this.io = io;
+    this.roomId = roomId || 'default';
+    this.mode = mode || 'tdm'; // 'tdm', 'ffa', 'ctf', 'pvc'
     this.players = new Map();
     this.killFeed = [];
     this.scores = { ct: 0, terrorist: 0 };
     this.interval = null;
+
+    // CTF flag state
+    if (this.mode === 'ctf') {
+      this.ctfFlags = {
+        ct: { x: CTF_FLAG_BASES.ct.x, z: CTF_FLAG_BASES.ct.z, y: 0.5, carriedBy: null, atBase: true, returnTimeout: null },
+        terrorist: { x: CTF_FLAG_BASES.terrorist.x, z: CTF_FLAG_BASES.terrorist.z, y: 0.5, carriedBy: null, atBase: true, returnTimeout: null },
+      };
+    }
+  }
+
+  // Broadcast to everyone in this room
+  _broadcast(event, data) {
+    this.io.to(this.roomId).emit(event, data);
+  }
+
+  // Send to specific socket
+  _send(socketId, event, data) {
+    this.io.to(socketId).emit(event, data);
   }
 
   start() {
@@ -179,13 +208,26 @@ class GameLoop {
     return player;
   }
 
+  addBot(team) {
+    _botCounter++;
+    const id = `bot_${_botCounter}`;
+    const botNames = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Ghost', 'Hawk', 'Iron', 'Jade'];
+    const name = 'BOT_' + botNames[(_botCounter - 1) % botNames.length];
+    const bot = createPlayer(id, name, team);
+    bot.isBot = true;
+    bot._botDirTimer = 0;
+    bot._botShootCooldown = Math.floor(Math.random() * 10);
+    this.players.set(id, bot);
+    return bot;
+  }
+
   removePlayer(id) {
     this.players.delete(id);
   }
 
   handleInput(id, input) {
     const player = this.players.get(id);
-    if (!player || !player.alive) return;
+    if (!player || !player.alive || player.isBot) return;
 
     player.moveForward = input.forward;
     player.moveBack = input.back;
@@ -211,7 +253,10 @@ class GameLoop {
 
     if (player.reloading) return;
     if (now - player.lastShot < weapon.fireRate) return;
-    if (ammoObj.ammo <= 0) return;
+    if (ammoObj.ammo <= 0) {
+      if (player.isBot) this.handleReload(id);
+      return;
+    }
 
     player.lastShot = now;
     ammoObj.ammo--;
@@ -230,7 +275,10 @@ class GameLoop {
     let minDist = weapon.range;
 
     for (const [otherId, other] of this.players) {
-      if (otherId === id || !other.alive || other.team === player.team) continue;
+      if (otherId === id || !other.alive) continue;
+      // FFA: everyone is an enemy. TDM/CTF/PvC: opposite team only
+      const isEnemy = this.mode === 'ffa' ? true : other.team !== player.team;
+      if (!isEnemy) continue;
 
       // Simple sphere intersection
       const dx = other.x - origin.x;
@@ -262,24 +310,26 @@ class GameLoop {
       const dmg = headshot ? weapon.damage * 2.5 : weapon.damage;
       hit.health -= dmg;
 
-      this.io.to(hit.id).emit('damaged', { health: hit.health, attackerId: id });
+      if (!hit.isBot) this._send(hit.id, 'damaged', { health: hit.health, attackerId: id });
 
       if (hit.health <= 0) {
         this.killPlayer(hit, player);
       }
 
-      this.io.emit('hitConfirm', { shooterId: id, targetId: hit.id, hitPoint, headshot: !!headshot });
+      this._broadcast('hitConfirm', { shooterId: id, targetId: hit.id, hitPoint, headshot: !!headshot });
     } else {
-      this.io.emit('bulletImpact', { shooterId: id, hitPoint, dir });
+      this._broadcast('bulletImpact', { shooterId: id, hitPoint, dir });
     }
 
     // Notify shooter of updated ammo
-    this.io.to(id).emit('ammoUpdate', {
-      ammo: player.ammo.ammo,
-      maxAmmo: player.ammo.maxAmmo,
-      pistolAmmo: player.pistolAmmo.ammo,
-      pistolMaxAmmo: player.pistolAmmo.maxAmmo
-    });
+    if (!player.isBot) {
+      this._send(id, 'ammoUpdate', {
+        ammo: player.ammo.ammo,
+        maxAmmo: player.ammo.maxAmmo,
+        pistolAmmo: player.pistolAmmo.ammo,
+        pistolMaxAmmo: player.pistolAmmo.maxAmmo
+      });
+    }
   }
 
   handleReload(id) {
@@ -295,7 +345,7 @@ class GameLoop {
     player.reloading = true;
     player.reloadEnd = Date.now() + weapon.reloadTime;
 
-    this.io.to(id).emit('reloadStart', { duration: weapon.reloadTime, weapon: player.weapon });
+    if (!player.isBot) this._send(id, 'reloadStart', { duration: weapon.reloadTime, weapon: player.weapon });
 
     setTimeout(() => {
       if (!this.players.has(id)) return;
@@ -303,10 +353,12 @@ class GameLoop {
       ammoObj.ammo += take;
       ammoObj.maxAmmo -= take;
       player.reloading = false;
-      this.io.to(id).emit('reloadEnd', {
-        ammo: ammoObj.ammo,
-        maxAmmo: ammoObj.maxAmmo
-      });
+      if (!player.isBot) {
+        this._send(id, 'reloadEnd', {
+          ammo: ammoObj.ammo,
+          maxAmmo: ammoObj.maxAmmo
+        });
+      }
     }, weapon.reloadTime);
   }
 
@@ -316,7 +368,25 @@ class GameLoop {
     victim.deaths++;
     killer.kills++;
     killer.score += 100;
-    this.scores[killer.team]++;
+    this.scores[killer.team] = (this.scores[killer.team] || 0) + 1;
+
+    // Drop CTF flag if victim was carrying it
+    if (this.mode === 'ctf' && this.ctfFlags) {
+      for (const [team, flag] of Object.entries(this.ctfFlags)) {
+        if (flag.carriedBy === victim.id) {
+          flag.carriedBy = null;
+          if (flag.returnTimeout) clearTimeout(flag.returnTimeout);
+          flag.returnTimeout = setTimeout(() => {
+            flag.x = CTF_FLAG_BASES[team].x;
+            flag.z = CTF_FLAG_BASES[team].z;
+            flag.y = 0.5;
+            flag.atBase = true;
+            this._broadcast('flagEvent', { type: 'returned', team });
+          }, 10000);
+          this._broadcast('flagEvent', { type: 'dropped', team, x: victim.x, z: victim.z });
+        }
+      }
+    }
 
     const killEvent = {
       killerId: killer.id,
@@ -332,8 +402,8 @@ class GameLoop {
     this.killFeed.unshift(killEvent);
     if (this.killFeed.length > 10) this.killFeed.pop();
 
-    this.io.emit('playerKilled', killEvent);
-    this.io.emit('scoreUpdate', this.scores);
+    this._broadcast('playerKilled', killEvent);
+    this._broadcast('scoreUpdate', this.scores);
 
     // Schedule respawn
     setTimeout(() => {
@@ -350,15 +420,128 @@ class GameLoop {
       victim.pistolAmmo = { ...WEAPONS.pistol };
       victim.reloading = false;
       victim.weapon = 'rifle';
-      this.io.to(victim.id).emit('respawn', { x: victim.x, y: victim.y, z: victim.z });
+      if (!victim.isBot) this._send(victim.id, 'respawn', { x: victim.x, y: victim.y, z: victim.z });
     }, RESPAWN_TIME);
   }
 
-  tick() {
-    const now = Date.now();
+  // ---- Bot AI ----
+  _tickBot(bot) {
+    if (!bot.alive) return;
+
+    // Wander: periodically change direction
+    bot._botDirTimer--;
+    if (bot._botDirTimer <= 0) {
+      bot.yaw = Math.random() * Math.PI * 2;
+      bot._botDirTimer = 30 + Math.floor(Math.random() * 50);
+      bot.moveForward = true;
+      bot.moveBack = false;
+      bot.moveLeft = false;
+      bot.moveRight = false;
+    }
+
+    // Find nearest enemy
+    let nearest = null, minDist = Infinity;
+    for (const [id, p] of this.players) {
+      if (id === bot.id || !p.alive) continue;
+      const isEnemy = this.mode === 'ffa' ? true : p.team !== bot.team;
+      if (!isEnemy) continue;
+      const dx = p.x - bot.x, dz = p.z - bot.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist < minDist) { minDist = dist; nearest = p; }
+    }
+
+    if (nearest && minDist < 28) {
+      // Aim toward nearest enemy with slight inaccuracy
+      const dx = nearest.x - bot.x, dz = nearest.z - bot.z;
+      bot.yaw = Math.atan2(-dx, -dz) + (Math.random() - 0.5) * 0.25;
+      bot.pitch = (Math.random() - 0.5) * 0.1;
+      bot.moveForward = minDist > 5;
+
+      // Shoot
+      bot._botShootCooldown--;
+      if (bot._botShootCooldown <= 0) {
+        this.handleShoot(bot.id, {});
+        bot._botShootCooldown = 2 + Math.floor(Math.random() * 5);
+      }
+    }
+  }
+
+  // ---- CTF Logic ----
+  _tickCTF() {
+    const pickupRadius = 1.5;
+    const captureRadius = 3.5;
 
     for (const [id, player] of this.players) {
       if (!player.alive) continue;
+
+      for (const [flagTeam, flag] of Object.entries(this.ctfFlags)) {
+        const isEnemyFlag = flagTeam !== player.team;
+        const dx = player.x - flag.x;
+        const dz = player.z - flag.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+
+        // Pick up enemy flag
+        if (isEnemyFlag && flag.atBase && !flag.carriedBy && dist < pickupRadius) {
+          flag.carriedBy = id;
+          flag.atBase = false;
+          this._broadcast('flagEvent', { type: 'pickup', team: flagTeam, playerId: id, playerName: player.name });
+        }
+
+        // Capture: carrying enemy flag, reached own base
+        const enemyFlagTeam = player.team === 'ct' ? 'terrorist' : 'ct';
+        const enemyFlag = this.ctfFlags[enemyFlagTeam];
+        const ownFlag = this.ctfFlags[player.team];
+
+        if (!isEnemyFlag && ownFlag.atBase && enemyFlag.carriedBy === id) {
+          const bdx = player.x - ownFlag.x;
+          const bdz = player.z - ownFlag.z;
+          if (Math.sqrt(bdx * bdx + bdz * bdz) < captureRadius) {
+            enemyFlag.carriedBy = null;
+            enemyFlag.atBase = true;
+            enemyFlag.x = CTF_FLAG_BASES[enemyFlagTeam].x;
+            enemyFlag.z = CTF_FLAG_BASES[enemyFlagTeam].z;
+            enemyFlag.y = 0.5;
+            if (enemyFlag.returnTimeout) clearTimeout(enemyFlag.returnTimeout);
+            this.scores[player.team] = (this.scores[player.team] || 0) + 1;
+            player.score += 200;
+            player.kills += 1;
+            this._broadcast('flagEvent', { type: 'captured', team: enemyFlagTeam, playerId: id, playerName: player.name });
+            this._broadcast('scoreUpdate', this.scores);
+          }
+        }
+      }
+    }
+
+    // Move flags with carriers; drop if carrier gone
+    for (const [team, flag] of Object.entries(this.ctfFlags)) {
+      if (flag.carriedBy) {
+        const carrier = this.players.get(flag.carriedBy);
+        if (carrier && carrier.alive) {
+          flag.x = carrier.x;
+          flag.z = carrier.z;
+          flag.y = carrier.y + 1.8;
+        } else {
+          flag.carriedBy = null;
+          if (flag.returnTimeout) clearTimeout(flag.returnTimeout);
+          flag.returnTimeout = setTimeout(() => {
+            flag.x = CTF_FLAG_BASES[team].x;
+            flag.z = CTF_FLAG_BASES[team].z;
+            flag.y = 0.5;
+            flag.atBase = true;
+            this._broadcast('flagEvent', { type: 'returned', team });
+          }, 10000);
+          this._broadcast('flagEvent', { type: 'dropped', team, x: flag.x, z: flag.z });
+        }
+      }
+    }
+  }
+
+  tick() {
+    for (const [id, player] of this.players) {
+      if (!player.alive) continue;
+
+      // Tick bots
+      if (player.isBot) this._tickBot(player);
 
       // Movement
       let dx = 0, dz = 0;
@@ -407,6 +590,9 @@ class GameLoop {
       }
     }
 
+    // CTF flag logic
+    if (this.mode === 'ctf' && this.ctfFlags) this._tickCTF();
+
     // Broadcast game state
     const state = [];
     for (const [id, p] of this.players) {
@@ -424,11 +610,25 @@ class GameLoop {
         weapon: p.weapon,
         kills: p.kills,
         deaths: p.deaths,
-        score: p.score
+        score: p.score,
+        isBot: p.isBot || false,
       });
     }
 
-    this.io.emit('gameState', { players: state, scores: this.scores });
+    const payload = { players: state, scores: this.scores, mode: this.mode };
+    if (this.mode === 'ctf' && this.ctfFlags) {
+      payload.flags = {
+        ct: {
+          x: this.ctfFlags.ct.x, z: this.ctfFlags.ct.z, y: this.ctfFlags.ct.y,
+          atBase: this.ctfFlags.ct.atBase, carriedBy: this.ctfFlags.ct.carriedBy
+        },
+        terrorist: {
+          x: this.ctfFlags.terrorist.x, z: this.ctfFlags.terrorist.z, y: this.ctfFlags.terrorist.y,
+          atBase: this.ctfFlags.terrorist.atBase, carriedBy: this.ctfFlags.terrorist.carriedBy
+        },
+      };
+    }
+    this._broadcast('gameState', payload);
   }
 }
 

@@ -5,7 +5,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
-const { GameLoop } = require('./gameloop');
+const { RoomManager } = require('./rooms');
 
 const app = express();
 const server = http.createServer(app);
@@ -26,12 +26,36 @@ app.use(express.static(path.join(__dirname, '..')));
 // In-memory stats store (cloud save — persists for server session)
 const playerStatsStore = new Map();
 
+// Room manager
+const roomManager = new RoomManager(io);
+
+// Periodically clean up empty rooms
+setInterval(() => roomManager.cleanup(), 60000);
+
+// ---- REST API ----
+
 // Health check for Railway
-app.get('/health', (req, res) => res.json({ status: 'ok', players: gameLoop.players.size }));
+app.get('/health', (req, res) => res.json({ status: 'ok', players: roomManager.totalPlayers() }));
 
 // Player count endpoint (used by home page)
 app.get('/api/playercount', (req, res) => {
-  res.json({ count: gameLoop.players.size });
+  res.json({ count: roomManager.totalPlayers() });
+});
+
+// List all rooms
+app.get('/api/rooms', (req, res) => {
+  res.json(roomManager.listRooms());
+});
+
+// Create a new room
+app.post('/api/rooms', (req, res) => {
+  const { name, mode, map, maxPlayers, botCount } = req.body || {};
+  try {
+    const room = roomManager.createRoom({ name, mode, map, maxPlayers, botCount });
+    res.json(room.info);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
 });
 
 // Load cloud stats for a player
@@ -46,7 +70,6 @@ app.post('/api/stats/:name', (req, res) => {
   const name = decodeURIComponent(req.params.name);
   const existing = playerStatsStore.get(name) || {};
   const incoming = req.body || {};
-  // Merge: always take the higher value for numeric stats
   const merged = {
     playerName: name,
     totalKills: Math.max(existing.totalKills || 0, incoming.totalKills || 0),
@@ -60,12 +83,13 @@ app.post('/api/stats/:name', (req, res) => {
   res.json({ ok: true, stats: merged });
 });
 
-const gameLoop = new GameLoop(io);
-gameLoop.start();
+// ---- Socket events ----
 
-function assignTeam() {
+function assignTeam(gameLoop, mode) {
+  if (mode === 'ffa') return 'ct'; // team irrelevant in FFA
   let ct = 0, t = 0;
   for (const [, p] of gameLoop.players) {
+    if (p.isBot) continue;
     if (p.team === 'ct') ct++;
     else t++;
   }
@@ -74,14 +98,45 @@ function assignTeam() {
 
 io.on('connection', (socket) => {
   console.log(`[+] Player connected: ${socket.id}`);
+  let currentRoomId = null;
 
+  // Request list of rooms
+  socket.on('listRooms', () => {
+    socket.emit('roomList', roomManager.listRooms());
+  });
+
+  // Quick play: join best available room
+  socket.on('quickPlay', ({ name }) => {
+    const room = roomManager.getBestRoom();
+    joinRoom(socket, room, name);
+  });
+
+  // Join specific room
+  socket.on('joinRoom', ({ name, roomId }) => {
+    const room = roomManager.getRoom(roomId);
+    if (!room) { socket.emit('joinError', { message: 'Room not found' }); return; }
+    if (room.isFull()) { socket.emit('joinError', { message: 'Room is full' }); return; }
+    joinRoom(socket, room, name);
+  });
+
+  // Legacy 'join' — join best room
   socket.on('join', ({ name }) => {
-    const playerName = (name || 'Player').slice(0, 20).replace(/[^a-zA-Z0-9 _-]/g, '');
-    const team = assignTeam();
-    const player = gameLoop.addPlayer(socket.id, playerName, team);
+    const room = roomManager.getBestRoom();
+    joinRoom(socket, room, name);
+  });
 
-    socket.emit('joined', {
-      id: socket.id,
+  function joinRoom(sock, room, rawName) {
+    if (currentRoomId) leaveRoom(sock, currentRoomId);
+
+    const playerName = (rawName || 'Player').slice(0, 20).replace(/[^a-zA-Z0-9 _-]/g, '');
+    const team = assignTeam(room.gameLoop, room.mode);
+    const player = room.gameLoop.addPlayer(sock.id, playerName, team);
+
+    sock.join(room.id);
+    currentRoomId = room.id;
+
+    sock.emit('joined', {
+      id: sock.id,
       team,
       x: player.x,
       y: player.y,
@@ -92,26 +147,53 @@ io.on('connection', (socket) => {
       maxAmmo: player.ammo.maxAmmo,
       pistolAmmo: player.pistolAmmo.ammo,
       pistolMaxAmmo: player.pistolAmmo.maxAmmo,
+      roomId: room.id,
+      roomName: room.name,
+      mode: room.mode,
+      map: room.map,
     });
 
-    io.emit('playerJoined', { id: socket.id, name: playerName, team });
-    console.log(`  ${playerName} joined as ${team.toUpperCase()}`);
-  });
+    io.to(room.id).emit('playerJoined', { id: sock.id, name: playerName, team });
+    io.emit('roomListUpdate', roomManager.listRooms());
+    console.log(`  ${playerName} joined room "${room.name}" (${room.mode}) as ${team.toUpperCase()}`);
+  }
+
+  function leaveRoom(sock, roomId) {
+    const room = roomManager.getRoom(roomId);
+    if (!room) return;
+    const player = room.gameLoop.players.get(sock.id);
+    if (player) {
+      io.to(roomId).emit('playerLeft', { id: sock.id, name: player.name });
+      console.log(`[-] ${player.name} left room "${room.name}"`);
+    }
+    room.gameLoop.removePlayer(sock.id);
+    sock.leave(roomId);
+    io.emit('roomListUpdate', roomManager.listRooms());
+  }
 
   socket.on('input', (input) => {
-    gameLoop.handleInput(socket.id, input);
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (room) room.gameLoop.handleInput(socket.id, input);
   });
 
   socket.on('shoot', (data) => {
-    gameLoop.handleShoot(socket.id, data);
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (room) room.gameLoop.handleShoot(socket.id, data);
   });
 
   socket.on('reload', () => {
-    gameLoop.handleReload(socket.id);
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (room) room.gameLoop.handleReload(socket.id);
   });
 
   socket.on('switchWeapon', ({ weapon }) => {
-    const player = gameLoop.players.get(socket.id);
+    if (!currentRoomId) return;
+    const room = roomManager.getRoom(currentRoomId);
+    if (!room) return;
+    const player = room.gameLoop.players.get(socket.id);
     if (player && !player.reloading) {
       player.weapon = weapon;
       socket.emit('weaponSwitched', { weapon });
@@ -119,17 +201,16 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    const player = gameLoop.players.get(socket.id);
-    if (player) {
-      io.emit('playerLeft', { id: socket.id, name: player.name });
-      console.log(`[-] ${player.name} disconnected`);
+    if (currentRoomId) {
+      leaveRoom(socket, currentRoomId);
+      currentRoomId = null;
     }
-    gameLoop.removePlayer(socket.id);
+    console.log(`[-] Player disconnected: ${socket.id}`);
   });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`\n🎮 FPS Server running on http://localhost:${PORT}`);
+  console.log(`\n🔥 HYPERFIRE Server running on http://localhost:${PORT}`);
   console.log(`   Game tick rate: 20 TPS`);
 });

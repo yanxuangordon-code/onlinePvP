@@ -778,12 +778,17 @@ class FPSGame {
   _setupSocketEvents() {
     this.socket.on('connect', () => {
       const name = window.PLAYER_NAME || 'Player' + Math.floor(Math.random() * 1000);
-      this.socket.join(name);
+      if (this._pendingJoinRoomId) {
+        this.socket.joinRoom(name, this._pendingJoinRoomId);
+      } else {
+        this.socket.quickPlay(name);
+      }
     });
 
     this.socket.on('joined', (data) => {
       this.localId = data.id;
       this.localTeam = data.team;
+      this.localMode = data.mode || 'tdm';
       this.ui.localPlayerId = data.id;
 
       this.camera.position.set(data.x, data.y + 0.6, data.z);
@@ -813,6 +818,11 @@ class FPSGame {
       if (me) {
         this.kills = me.kills;
         this.ui.updateKillScore(me.kills);
+      }
+
+      // CTF flag HUD
+      if (data.flags && window.updateCTFHud) {
+        window.updateCTFHud(data.flags);
       }
     });
 

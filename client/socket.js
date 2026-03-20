@@ -1,6 +1,4 @@
-// Socket.io client wrapper
-// When hosted on Railway, set SOCKET_URL to your Railway URL
-// For local dev, falls back to current origin
+// Socket.io client wrapper for HYPERFIRE
 
 class GameSocket {
   constructor() {
@@ -39,7 +37,11 @@ class GameSocket {
       'joined', 'playerJoined', 'playerLeft', 'gameState',
       'playerKilled', 'hitConfirm', 'bulletImpact', 'damaged',
       'respawn', 'ammoUpdate', 'reloadStart', 'reloadEnd',
-      'scoreUpdate', 'weaponSwitched'
+      'scoreUpdate', 'weaponSwitched',
+      // Room events
+      'roomList', 'roomListUpdate', 'joinError',
+      // CTF events
+      'flagEvent',
     ];
 
     for (const event of events) {
@@ -58,8 +60,24 @@ class GameSocket {
     }
   }
 
+  // Join best available room (quick play)
+  quickPlay(name) {
+    this.socket.emit('quickPlay', { name });
+  }
+
+  // Join a specific room by id
+  joinRoom(name, roomId) {
+    this.socket.emit('joinRoom', { name, roomId });
+  }
+
+  // Legacy join (uses quick play on server)
   join(name) {
     this.socket.emit('join', { name });
+  }
+
+  // Request room list
+  listRooms() {
+    this.socket.emit('listRooms');
   }
 
   sendInput(input) {
