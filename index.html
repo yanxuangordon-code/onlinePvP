@@ -145,10 +145,10 @@
     }
     .topbar-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
 
-    /* 3-column layout */
+    /* Single-column layout (side panels removed) */
     .home-content {
       flex: 1; display: grid;
-      grid-template-columns: 270px 1fr 270px;
+      grid-template-columns: 1fr;
       overflow: hidden;
     }
 
@@ -1025,19 +1025,6 @@
   <!-- Main 3-column layout -->
   <div class="home-content">
 
-    <!-- LEFT PANEL: Armory + Missions -->
-    <div class="side-panel left">
-      <div class="panel-title">🔫 Arsenal</div>
-      <div class="armory-section" id="armoryList">
-        <!-- Populated by renderArmory() -->
-      </div>
-
-      <div class="panel-title" style="margin-top:4px">📋 Daily Missions</div>
-      <div id="missionsList">
-        <!-- Populated by renderMissions() -->
-      </div>
-    </div>
-
     <!-- CENTER: Logo + Play Buttons -->
     <div class="home-center">
       <div class="game-logo">
@@ -1065,58 +1052,6 @@
         </div>
       </div>
 
-      <!-- Game info cards -->
-      <div class="game-cards">
-        <div class="game-card">
-          <div class="card-icon">🗺</div>
-          <div class="card-label">Map</div>
-          <div class="card-value">FPS Arena</div>
-        </div>
-        <div class="game-card">
-          <div class="card-icon">⚔</div>
-          <div class="card-label">Modes</div>
-          <div class="card-value">TDM / FFA / CTF</div>
-        </div>
-        <div class="game-card">
-          <div class="card-icon">👥</div>
-          <div class="card-label">Online</div>
-          <div class="card-value" id="playerCountDisplay">--</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- RIGHT PANEL: Controls + Tips -->
-    <div class="side-panel right">
-      <div class="panel-title">Controls</div>
-      <div class="controls-list">
-        <div class="control-row"><span class="key">WASD</span><span class="ctrl-desc">Move</span></div>
-        <div class="control-row"><span class="key">Mouse</span><span class="ctrl-desc">Look around</span></div>
-        <div class="control-row"><span class="key">LMB</span><span class="ctrl-desc">Shoot</span></div>
-        <div class="control-row"><span class="key">R</span><span class="ctrl-desc">Reload</span></div>
-        <div class="control-row"><span class="key">Space</span><span class="ctrl-desc">Jump</span></div>
-        <div class="control-row"><span class="key">1 / 2</span><span class="ctrl-desc">Switch weapon</span></div>
-        <div class="control-row"><span class="key">Scroll</span><span class="ctrl-desc">Cycle weapon</span></div>
-        <div class="control-row"><span class="key">Tab</span><span class="ctrl-desc">Scoreboard</span></div>
-        <div class="control-row"><span class="key">Esc</span><span class="ctrl-desc">Pause menu</span></div>
-      </div>
-
-      <div class="panel-title">Game Modes</div>
-      <div class="tip-item" style="border-left-color:#4fc3f7">
-        <div class="tip-title">⚔️ Team Deathmatch</div>
-        <div class="tip-text">CT vs Terrorist. The team with the most kills when time runs out wins.</div>
-      </div>
-      <div class="tip-item" style="border-left-color:#e74c3c">
-        <div class="tip-title">💀 Free For All</div>
-        <div class="tip-text">Every player for themselves. No teams — shoot everyone you see.</div>
-      </div>
-      <div class="tip-item" style="border-left-color:#2ecc71">
-        <div class="tip-title">🚩 Capture the Flag</div>
-        <div class="tip-text">Grab the enemy flag and carry it back to your base to score points.</div>
-      </div>
-      <div class="tip-item" style="border-left-color:#9b59b6">
-        <div class="tip-title">🤖 vs Bots</div>
-        <div class="tip-text">Practice your aim and strategy against AI-controlled opponents.</div>
-      </div>
     </div>
   </div>
 
@@ -1199,10 +1134,6 @@
 <div id="killFeed" class="hud"></div>
 <div id="flagToast" class="hud"></div>
 <div id="coinsToast"></div>
-
-<div id="minimap" class="hud">
-  <canvas id="minimapCanvas" width="120" height="120"></canvas>
-</div>
 
 <div id="scoreboard">
   <h2>SCOREBOARD</h2>
@@ -1627,7 +1558,6 @@
       if (res.ok) {
         const data = await res.json();
         const count = data.count || 0;
-        document.getElementById('playerCountDisplay').textContent = count;
         document.getElementById('onlineCount').textContent = `${count} player${count !== 1 ? 's' : ''} online`;
         document.getElementById('serverStatusDot').className = 'status-dot';
         document.getElementById('serverStatusText').textContent = 'Server Online';
@@ -1635,7 +1565,6 @@
     } catch(e) {
       document.getElementById('serverStatusDot').className = 'status-dot offline';
       document.getElementById('serverStatusText').textContent = 'Server Offline';
-      document.getElementById('playerCountDisplay').textContent = '--';
     }
   }
 

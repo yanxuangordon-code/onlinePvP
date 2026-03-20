@@ -146,7 +146,8 @@ class FPSGame {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.toneMappingExposure = 1.4;
+    this.renderer.outputEncoding = THREE.sRGBEncoding;
     document.getElementById('gameCanvas').appendChild(this.renderer.domElement);
 
     window.addEventListener('resize', () => {
@@ -268,33 +269,52 @@ class FPSGame {
 
   _initScene() {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x6a9ec2);
-    this.scene.fog = new THREE.FogExp2(0x6a9ec2, 0.008);
+    this.scene.background = new THREE.Color(0x1a2a3a);
+    this.scene.fog = new THREE.Fog(0x1a2a3a, 55, 130);
   }
 
   _initLights() {
-    // Hemisphere light: sky above, ground bounce below
-    const hemi = new THREE.HemisphereLight(0x87b8d8, 0x806b50, 0.7);
+    // Ambient base
+    const ambient = new THREE.AmbientLight(0x223344, 0.6);
+    this.scene.add(ambient);
+
+    // Hemisphere: cool night sky / warm ground bounce
+    const hemi = new THREE.HemisphereLight(0x334466, 0x4a3520, 0.8);
     this.scene.add(hemi);
 
-    // Main sun — warm directional light
-    const sun = new THREE.DirectionalLight(0xffe8c0, 1.4);
-    sun.position.set(30, 60, 20);
+    // Main overhead directional (stadium-style)
+    const sun = new THREE.DirectionalLight(0xddeeff, 1.8);
+    sun.position.set(10, 80, 10);
     sun.castShadow = true;
-    sun.shadow.mapSize.width = 2048;
-    sun.shadow.mapSize.height = 2048;
+    sun.shadow.mapSize.width = 4096;
+    sun.shadow.mapSize.height = 4096;
     sun.shadow.camera.near = 0.5;
-    sun.shadow.camera.far = 220;
-    sun.shadow.camera.left = -70;
-    sun.shadow.camera.right = 70;
-    sun.shadow.camera.top = 70;
-    sun.shadow.camera.bottom = -70;
-    sun.shadow.bias = -0.0003;
+    sun.shadow.camera.far = 250;
+    sun.shadow.camera.left = -75;
+    sun.shadow.camera.right = 75;
+    sun.shadow.camera.top = 75;
+    sun.shadow.camera.bottom = -75;
+    sun.shadow.bias = -0.0002;
     this.scene.add(sun);
 
-    // Subtle fill light from opposite side
-    const fill = new THREE.DirectionalLight(0xc0d8f0, 0.3);
-    fill.position.set(-20, 20, -30);
+    // CT side — blue accent light
+    const ctLight = new THREE.PointLight(0x4488ff, 2.5, 35);
+    ctLight.position.set(0, 8, -38);
+    this.scene.add(ctLight);
+
+    // T side — red accent light
+    const tLight = new THREE.PointLight(0xff4422, 2.5, 35);
+    tLight.position.set(0, 8, 38);
+    this.scene.add(tLight);
+
+    // Mid center — warm fill
+    const midLight = new THREE.PointLight(0xffcc44, 1.2, 20);
+    midLight.position.set(0, 6, 0);
+    this.scene.add(midLight);
+
+    // Fill from opposite side
+    const fill = new THREE.DirectionalLight(0x7799cc, 0.4);
+    fill.position.set(-30, 15, -20);
     this.scene.add(fill);
   }
 
@@ -520,8 +540,8 @@ class FPSGame {
     labelB.position.set(20, 0.03, 0);
     self.scene.add(labelB);
 
-    // Skybox-like distant scenery
-    this.scene.fog = new THREE.Fog(0x87ceeb, 60, 150);
+    // Fog matches dark arena sky
+    this.scene.fog = new THREE.Fog(0x1a2a3a, 55, 130);
   }
 
   // ---- Input ----
@@ -681,20 +701,41 @@ class FPSGame {
 
   // ---- Particles ----
 
-  _spawnImpactParticles(position) {
-    for (let i = 0; i < 6; i++) {
-      const geo = new THREE.SphereGeometry(0.04, 4, 4);
-      const mat = new THREE.MeshBasicMaterial({ color: 0xccaa77 });
+  _spawnImpactParticles(position, color) {
+    const c = color || 0xd4b483;
+    // Spark chips
+    for (let i = 0; i < 10; i++) {
+      const geo = new THREE.SphereGeometry(0.025 + Math.random() * 0.03, 4, 4);
+      const mat = new THREE.MeshBasicMaterial({ color: c });
       const p = new THREE.Mesh(geo, mat);
       p.position.copy(position);
       const vel = new THREE.Vector3(
-        (Math.random() - 0.5) * 0.15,
-        Math.random() * 0.15,
-        (Math.random() - 0.5) * 0.15
+        (Math.random() - 0.5) * 0.22,
+        Math.random() * 0.22 + 0.04,
+        (Math.random() - 0.5) * 0.22
       );
       this.scene.add(p);
-      this.particles.push({ mesh: p, vel, life: 0.6, maxLife: 0.6 });
+      this.particles.push({ mesh: p, vel, life: 0.5, maxLife: 0.5 });
     }
+    // Expanding ring flash
+    const ringGeo = new THREE.RingGeometry(0.05, 0.18, 12);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0xffdd88, transparent: true, opacity: 0.85, side: THREE.DoubleSide });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.copy(position);
+    ring.lookAt(this.camera.position);
+    this.scene.add(ring);
+    let rf = 0;
+    const ringAnim = setInterval(() => {
+      rf += 0.12;
+      ring.scale.setScalar(1 + rf * 3);
+      ringMat.opacity = 0.85 * (1 - rf);
+      if (rf >= 1) { clearInterval(ringAnim); this.scene.remove(ring); }
+    }, 16);
+    // Point light flash at hit
+    const fl = new THREE.PointLight(0xffcc44, 4, 3);
+    fl.position.copy(position);
+    this.scene.add(fl);
+    setTimeout(() => this.scene.remove(fl), 80);
   }
 
   _spawnBloodParticles(position) {
@@ -967,14 +1008,21 @@ class FPSGame {
       const pos = new THREE.Vector3(data.hitPoint.x, data.hitPoint.y, data.hitPoint.z);
       this._spawnImpactParticles(pos);
 
-      // Bullet hole decal
+      // Bullet hole decal — orient toward camera so it's always visible
       const decal = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.15, 0.15),
-        new THREE.MeshBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.8 })
+        new THREE.CircleGeometry(0.07, 8),
+        new THREE.MeshBasicMaterial({ color: 0x0a0a0a, transparent: true, opacity: 0.85 })
       );
       decal.position.copy(pos);
+      decal.lookAt(this.camera.position);
       this.scene.add(decal);
-      setTimeout(() => this.scene.remove(decal), 10000);
+      // Fade out then remove
+      let fade = 1;
+      const fadeInterval = setInterval(() => {
+        fade -= 0.005;
+        decal.material.opacity = 0.85 * fade;
+        if (fade <= 0) { clearInterval(fadeInterval); this.scene.remove(decal); }
+      }, 100);
     });
 
     this.socket.on('ammoUpdate', (data) => {
