@@ -44,22 +44,43 @@ class FPSGame {
     this.MAP_SIZE = 50;
 
     // Wall collision data — must match server/gameloop.js WALLS array
+    // Dimensions match visual geometry in _buildMap()
     this.CLIENT_WALLS = [
+      // Central building
       { x: 0, z: 0, w: 6, d: 6 },
-      { x: -15, z: -20, w: 8, d: 2 },
-      { x: 15, z: -20, w: 8, d: 2 },
-      { x: -8, z: -30, w: 2, d: 8 },
-      { x: 8, z: -30, w: 2, d: 8 },
-      { x: -15, z: 20, w: 8, d: 2 },
-      { x: 15, z: 20, w: 8, d: 2 },
-      { x: -8, z: 30, w: 2, d: 8 },
-      { x: 8, z: 30, w: 2, d: 8 },
+      // CT long walls (visual depth 0.4)
+      { x: -15, z: -20, w: 8, d: 0.5 },
+      { x: 15, z: -20, w: 8, d: 0.5 },
+      // CT pillars (visual width 0.4)
+      { x: -8, z: -30, w: 0.5, d: 8 },
+      { x: 8, z: -30, w: 0.5, d: 8 },
+      // T long walls
+      { x: -15, z: 20, w: 8, d: 0.5 },
+      { x: 15, z: 20, w: 8, d: 0.5 },
+      // T pillars
+      { x: -8, z: 30, w: 0.5, d: 8 },
+      { x: 8, z: 30, w: 0.5, d: 8 },
+      // Mid crates (with stacked crate above — same footprint)
       { x: -10, z: 0, w: 3, d: 3 },
       { x: 10, z: 0, w: 3, d: 3 },
       { x: 0, z: -12, w: 3, d: 3 },
       { x: 0, z: 12, w: 3, d: 3 },
-      { x: -25, z: 0, w: 2, d: 20 },
-      { x: 25, z: 0, w: 2, d: 20 },
+      // Side long walls (visual width 0.4)
+      { x: -25, z: 0, w: 0.5, d: 20 },
+      { x: 25, z: 0, w: 0.5, d: 20 },
+      // Small barriers near center
+      { x: -5, z: -5, w: 0.4, d: 4 },
+      { x: 5, z: -5, w: 0.4, d: 4 },
+      { x: -5, z: 5, w: 0.4, d: 4 },
+      { x: 5, z: 5, w: 0.4, d: 4 },
+      // Scattered crates
+      { x: -18, z: -10, w: 1.5, d: 1.5 },
+      { x: -18, z: 10, w: 1.5, d: 1.5 },
+      { x: 18, z: -10, w: 1.5, d: 1.5 },
+      { x: 18, z: 10, w: 1.5, d: 1.5 },
+      // Spawn back walls
+      { x: 0, z: -45.5, w: 20, d: 0.6 },
+      { x: 0, z: 45.5, w: 20, d: 0.6 },
     ];
 
     // Particle effects
@@ -108,11 +129,13 @@ class FPSGame {
   // ---- Renderer ----
 
   _initRenderer() {
-    this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.1;
     document.getElementById('gameCanvas').appendChild(this.renderer.domElement);
 
     window.addEventListener('resize', () => {
@@ -189,49 +212,76 @@ class FPSGame {
 
   _initScene() {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x87ceeb);
-    this.scene.fog = new THREE.Fog(0x87ceeb, 40, 120);
+    this.scene.background = new THREE.Color(0x6a9ec2);
+    this.scene.fog = new THREE.FogExp2(0x6a9ec2, 0.008);
   }
 
   _initLights() {
-    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
-    this.scene.add(ambient);
+    // Hemisphere light: sky above, ground bounce below
+    const hemi = new THREE.HemisphereLight(0x87b8d8, 0x806b50, 0.7);
+    this.scene.add(hemi);
 
-    const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-    sun.position.set(20, 50, 20);
+    // Main sun — warm directional light
+    const sun = new THREE.DirectionalLight(0xffe8c0, 1.4);
+    sun.position.set(30, 60, 20);
     sun.castShadow = true;
     sun.shadow.mapSize.width = 2048;
     sun.shadow.mapSize.height = 2048;
     sun.shadow.camera.near = 0.5;
-    sun.shadow.camera.far = 200;
-    sun.shadow.camera.left = -60;
-    sun.shadow.camera.right = 60;
-    sun.shadow.camera.top = 60;
-    sun.shadow.camera.bottom = -60;
+    sun.shadow.camera.far = 220;
+    sun.shadow.camera.left = -70;
+    sun.shadow.camera.right = 70;
+    sun.shadow.camera.top = 70;
+    sun.shadow.camera.bottom = -70;
+    sun.shadow.bias = -0.0003;
     this.scene.add(sun);
+
+    // Subtle fill light from opposite side
+    const fill = new THREE.DirectionalLight(0xc0d8f0, 0.3);
+    fill.position.set(-20, 20, -30);
+    this.scene.add(fill);
   }
 
   _buildMap() {
     const self = this;
 
-    // Textures (procedural)
+    // Procedural textures
     function makeTexture(color1, color2, size, pattern) {
       const canvas = document.createElement('canvas');
-      canvas.width = 64; canvas.height = 64;
+      canvas.width = 128; canvas.height = 128;
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = color1;
-      ctx.fillRect(0, 0, 64, 64);
-      ctx.fillStyle = color2;
+      ctx.fillRect(0, 0, 128, 128);
       if (pattern === 'grid') {
         ctx.strokeStyle = color2;
         ctx.lineWidth = 1;
-        for (let i = 0; i <= 64; i += 16) {
-          ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 64); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(64, i); ctx.stroke();
+        for (let i = 0; i <= 128; i += 32) {
+          ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 128); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(128, i); ctx.stroke();
+        }
+      } else if (pattern === 'concrete') {
+        // Subtle noise for concrete look
+        for (let x = 0; x < 128; x += 4) for (let y = 0; y < 128; y += 4) {
+          const v = Math.random() * 12 - 6;
+          ctx.fillStyle = `rgba(${v > 0 ? 255 : 0},${v > 0 ? 255 : 0},${v > 0 ? 255 : 0},${Math.abs(v)/100})`;
+          ctx.fillRect(x, y, 4, 4);
+        }
+        ctx.strokeStyle = color2; ctx.lineWidth = 1;
+        for (let i = 0; i <= 128; i += 32) {
+          ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 128); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(128, i); ctx.stroke();
         }
       } else if (pattern === 'checker') {
         for (let x = 0; x < 4; x++) for (let y = 0; y < 4; y++) {
-          if ((x + y) % 2 === 0) ctx.fillRect(x * 16, y * 16, 16, 16);
+          if ((x + y) % 2 === 0) { ctx.fillStyle = color2; ctx.fillRect(x * 32, y * 32, 32, 32); }
+        }
+      } else if (pattern === 'planks') {
+        // Wooden planks
+        for (let y = 0; y < 128; y += 16) {
+          const off = (Math.floor(y / 16) % 2) * 64;
+          ctx.fillStyle = color2;
+          ctx.fillRect(0, y, 128, 1);
+          for (let x = off; x < 128; x += 64) ctx.fillRect(x, y, 1, 16);
         }
       }
       const tex = new THREE.CanvasTexture(canvas);
@@ -240,11 +290,11 @@ class FPSGame {
       return tex;
     }
 
-    const floorTex = makeTexture('#888888', '#777777', 20, 'grid');
-    const wallTex = makeTexture('#a0a0a0', '#909090', 4, 'grid');
-    const ctTex = makeTexture('#1a3a5c', '#1e4a7c', 8, 'grid');
-    const tTex = makeTexture('#5c2a1a', '#7c3a1e', 8, 'grid');
-    const boxTex = makeTexture('#8B6914', '#7a5c10', 2, 'checker');
+    const floorTex  = makeTexture('#7a7a7a', '#5a5a5a', 25, 'grid');
+    const wallTex   = makeTexture('#9a9590', '#7a7570', 3, 'concrete');
+    const ctTex     = makeTexture('#0d2a4a', '#0f3560', 6, 'grid');
+    const tTex      = makeTexture('#4a1008', '#6a1810', 6, 'grid');
+    const boxTex    = makeTexture('#9a7828', '#7a5818', 3, 'planks');
 
     function makeMat(tex, color) {
       return new THREE.MeshLambertMaterial({ map: tex, color: color || 0xffffff });
@@ -912,8 +962,9 @@ class FPSGame {
       const cos = Math.cos(this.yaw);
       const sin = Math.sin(this.yaw);
 
-      if (this.keys['KeyW']) { dx += sin; dz += cos; }
-      if (this.keys['KeyS']) { dx -= sin; dz -= cos; }
+      // Camera looks at -Z when yaw=0, so forward = (-sin, 0, -cos)
+      if (this.keys['KeyW']) { dx -= sin; dz -= cos; }
+      if (this.keys['KeyS']) { dx += sin; dz += cos; }
       if (this.keys['KeyA']) { dx -= cos; dz += sin; }
       if (this.keys['KeyD']) { dx += cos; dz -= sin; }
 

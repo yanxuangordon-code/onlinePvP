@@ -37,28 +37,43 @@ const MAP_BOUNDS = { minX: -50, maxX: 50, minZ: -50, maxZ: 50 };
 
 // Simplified wall list for server-side collision detection
 // Format: { x, z, w, d } = position and size of box obstacles
+// Wall dimensions match visual geometry in client/game.js _buildMap()
 const WALLS = [
-  // Outer boundary walls (handled by bounds check)
-  // Central structures
+  // Central building
   { x: 0, z: 0, w: 6, d: 6 },
-  // CT side cover
-  { x: -15, z: -20, w: 8, d: 2 },
-  { x: 15, z: -20, w: 8, d: 2 },
-  { x: -8, z: -30, w: 2, d: 8 },
-  { x: 8, z: -30, w: 2, d: 8 },
-  // T side cover
-  { x: -15, z: 20, w: 8, d: 2 },
-  { x: 15, z: 20, w: 8, d: 2 },
-  { x: -8, z: 30, w: 2, d: 8 },
-  { x: 8, z: 30, w: 2, d: 8 },
-  // Mid boxes
+  // CT long walls (visual depth 0.4)
+  { x: -15, z: -20, w: 8, d: 0.5 },
+  { x: 15, z: -20, w: 8, d: 0.5 },
+  // CT pillars (visual width 0.4)
+  { x: -8, z: -30, w: 0.5, d: 8 },
+  { x: 8, z: -30, w: 0.5, d: 8 },
+  // T long walls
+  { x: -15, z: 20, w: 8, d: 0.5 },
+  { x: 15, z: 20, w: 8, d: 0.5 },
+  // T pillars
+  { x: -8, z: 30, w: 0.5, d: 8 },
+  { x: 8, z: 30, w: 0.5, d: 8 },
+  // Mid crates
   { x: -10, z: 0, w: 3, d: 3 },
   { x: 10, z: 0, w: 3, d: 3 },
   { x: 0, z: -12, w: 3, d: 3 },
   { x: 0, z: 12, w: 3, d: 3 },
-  // Side walls
-  { x: -25, z: 0, w: 2, d: 20 },
-  { x: 25, z: 0, w: 2, d: 20 },
+  // Side long walls (visual width 0.4)
+  { x: -25, z: 0, w: 0.5, d: 20 },
+  { x: 25, z: 0, w: 0.5, d: 20 },
+  // Small barriers near center
+  { x: -5, z: -5, w: 0.4, d: 4 },
+  { x: 5, z: -5, w: 0.4, d: 4 },
+  { x: -5, z: 5, w: 0.4, d: 4 },
+  { x: 5, z: 5, w: 0.4, d: 4 },
+  // Scattered crates
+  { x: -18, z: -10, w: 1.5, d: 1.5 },
+  { x: -18, z: 10, w: 1.5, d: 1.5 },
+  { x: 18, z: -10, w: 1.5, d: 1.5 },
+  { x: 18, z: 10, w: 1.5, d: 1.5 },
+  // Spawn back walls
+  { x: 0, z: -45.5, w: 20, d: 0.6 },
+  { x: 0, z: 45.5, w: 20, d: 0.6 },
 ];
 
 const SPAWN_POINTS = {
@@ -350,8 +365,9 @@ class GameLoop {
       const cos = Math.cos(player.yaw);
       const sin = Math.sin(player.yaw);
 
-      if (player.moveForward) { dx += sin; dz += cos; }
-      if (player.moveBack)    { dx -= sin; dz -= cos; }
+      // Camera faces -Z when yaw=0, so forward = (-sin, 0, -cos)
+      if (player.moveForward) { dx -= sin; dz -= cos; }
+      if (player.moveBack)    { dx += sin; dz += cos; }
       if (player.moveLeft)    { dx -= cos; dz += sin; }
       if (player.moveRight)   { dx += cos; dz -= sin; }
 
