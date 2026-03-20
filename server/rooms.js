@@ -84,15 +84,29 @@ class RoomManager {
   }
 
   getBestRoom() {
-    // Find the most populated non-full TDM room, falling back to any non-full room
+    // Find the most populated non-full non-pvc room
     let best = null;
     for (const room of this.rooms.values()) {
       if (!room.isFull() && room.mode !== 'pvc') {
         if (!best || room.playerCount > best.playerCount) best = room;
       }
     }
+
+    // If no humans are currently online, fall back to a bot room so the
+    // player isn't alone in an empty arena
+    if (!best || best.playerCount === 0) {
+      const totalHumans = this.totalPlayers();
+      if (totalHumans === 0) {
+        // Reuse an existing non-full pvc room first
+        for (const room of this.rooms.values()) {
+          if (!room.isFull() && room.mode === 'pvc') return room;
+        }
+        return this.createRoom({ name: 'Quick Bot Arena', mode: 'pvc', map: 'arena', botCount: 5 });
+      }
+    }
+
     if (!best) {
-      // All full — create a new auto room
+      // All non-pvc rooms full — create a new TDM room
       best = this.createRoom({ name: 'Auto Arena', mode: 'tdm', map: 'arena' });
     }
     return best;

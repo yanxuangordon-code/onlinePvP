@@ -901,6 +901,82 @@
   </div>
 </div>
 
+<!-- ===================== HOW TO PLAY MODAL ===================== -->
+<div class="modal-overlay" id="howToPlayModal">
+  <div class="modal-window" style="width:560px">
+    <div class="modal-header">
+      <span class="modal-title">📖 HOW TO PLAY</span>
+      <button class="modal-close" id="closeHowToPlayBtn">✕</button>
+    </div>
+    <div class="modal-body" style="display:flex;flex-direction:column;gap:18px">
+      <div>
+        <div class="panel-title" style="border:none;margin-bottom:10px">Controls</div>
+        <div class="controls-list">
+          <div class="control-row"><span class="key">WASD</span><span class="ctrl-desc">Move</span></div>
+          <div class="control-row"><span class="key">Mouse</span><span class="ctrl-desc">Look around</span></div>
+          <div class="control-row"><span class="key">LMB</span><span class="ctrl-desc">Shoot</span></div>
+          <div class="control-row"><span class="key">R</span><span class="ctrl-desc">Reload</span></div>
+          <div class="control-row"><span class="key">Space</span><span class="ctrl-desc">Jump</span></div>
+          <div class="control-row"><span class="key">1 / 2</span><span class="ctrl-desc">Switch weapon (primary / secondary)</span></div>
+          <div class="control-row"><span class="key">Scroll</span><span class="ctrl-desc">Cycle weapons</span></div>
+          <div class="control-row"><span class="key">Tab</span><span class="ctrl-desc">View scoreboard</span></div>
+          <div class="control-row"><span class="key">Esc</span><span class="ctrl-desc">Pause menu</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="panel-title" style="border:none;margin-bottom:10px">Game Modes</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="tip-item" style="border-left-color:#4fc3f7">
+            <div class="tip-title">⚔️ Team Deathmatch (TDM)</div>
+            <div class="tip-text">CT vs Terrorist. Reach 30 kills to win. +10 coins per kill, +200 per match win.</div>
+          </div>
+          <div class="tip-item" style="border-left-color:#e74c3c">
+            <div class="tip-title">💀 Free For All (FFA)</div>
+            <div class="tip-text">Every player for themselves. First to 20 kills wins.</div>
+          </div>
+          <div class="tip-item" style="border-left-color:#2ecc71">
+            <div class="tip-title">🚩 Capture the Flag (CTF)</div>
+            <div class="tip-text">Steal the enemy flag and return it to your base. First to 5 captures wins.</div>
+          </div>
+          <div class="tip-item" style="border-left-color:#9b59b6">
+            <div class="tip-title">🤖 vs Bots (PvC)</div>
+            <div class="tip-text">Practice your aim against AI opponents. Earn coins to unlock new weapons.</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="panel-title" style="border:none;margin-bottom:10px">Economy</div>
+        <div class="tip-item" style="border-left-color:#f1c40f">
+          <div class="tip-title">💰 Coins System</div>
+          <div class="tip-text">Earn <b>+10 coins</b> per kill and <b>+200 coins</b> per match win. Complete daily missions for bonus rewards. Spend coins in the Gun Shop to unlock new weapons.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== GUN SHOP MODAL ===================== -->
+<div class="modal-overlay" id="gunShopModal">
+  <div class="modal-window" style="width:540px">
+    <div class="modal-header">
+      <span class="modal-title">🔫 GUN SHOP</span>
+      <div style="flex:1"></div>
+      <span style="font-size:0.85em;color:#f1c40f;font-weight:bold;margin-right:12px" id="shopCoinsDisplay">💰 0</span>
+      <button class="modal-close" id="closeGunShopBtn">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:0.75em;color:var(--muted);margin-bottom:12px">Unlock weapons with coins earned from kills, wins, and daily missions. Equipped weapons are used in your next game.</div>
+      <div class="panel-title" style="border:none;margin-bottom:8px">Primary Weapons</div>
+      <div class="armory-section" id="shopPrimaryList" style="margin-bottom:16px"></div>
+      <div class="panel-title" style="border:none;margin-bottom:8px">Secondary Weapons</div>
+      <div class="armory-section" id="shopSecondaryList"></div>
+    </div>
+    <div class="modal-footer">
+      <div style="font-size:0.75em;color:var(--muted)">Changes take effect in your next game session.</div>
+    </div>
+  </div>
+</div>
+
 <!-- ===================== HOME PAGE ===================== -->
 <div id="homePage">
   <!-- Top Bar -->
@@ -912,6 +988,8 @@
       <div class="status-dot" id="serverStatusDot"></div>
       <span id="serverStatusText">Connecting...</span>
     </div>
+    <button class="topbar-btn" id="howToPlayBtn">📖 HOW TO PLAY</button>
+    <button class="topbar-btn" id="gunShopBtn" style="border-color:rgba(241,196,15,0.35);color:#f1c40f">🔫 GUN SHOP</button>
     <!-- Profile widget (hover to expand) -->
     <div class="profile-widget" id="profileWidget">
       <div class="topbar-avatar" id="topbarAvatar">?</div>
@@ -1782,7 +1860,61 @@
   function closeAllModals() {
     document.getElementById('serverBrowserModal').classList.remove('show');
     document.getElementById('createServerModal').classList.remove('show');
+    document.getElementById('howToPlayModal').classList.remove('show');
+    document.getElementById('gunShopModal').classList.remove('show');
   }
+
+  // ===================== GUN SHOP RENDER =====================
+  function renderShop() {
+    const owned = stats.ownedWeapons || ['ak47', 'pistol'];
+    const eqP = stats.equippedPrimary || 'ak47';
+    const eqS = stats.equippedSecondary || 'pistol';
+    const coins = stats.coins || 0;
+
+    // Update coins display
+    const sd = document.getElementById('shopCoinsDisplay');
+    if (sd) sd.textContent = `💰 ${coins}`;
+
+    function renderList(containerEl, weapons) {
+      if (!containerEl) return;
+      containerEl.innerHTML = weapons.map(wid => {
+        const w = WEAPON_INFO[wid];
+        const isOwned = owned.includes(wid);
+        const isEqP = wid === eqP;
+        const isEqS = wid === eqS;
+        const isEquipped = isEqP || isEqS;
+        let cardClass = 'weapon-card';
+        if (isEquipped) cardClass += ' equipped';
+        else if (isOwned) cardClass += ' owned';
+        else cardClass += ' locked';
+
+        let actionHtml;
+        if (isEquipped) {
+          actionHtml = `<button class="btn-weapon equipped" disabled>✓ EQUIPPED</button>`;
+        } else if (isOwned) {
+          actionHtml = `<button class="btn-weapon equip" onclick="equipWeapon('${wid}','${w.tier}');renderShop()">EQUIP</button>`;
+        } else {
+          const canAfford = coins >= w.price;
+          actionHtml = canAfford
+            ? `<div><div class="weapon-price">💰 ${w.price}</div><button class="btn-weapon buy" onclick="buyWeapon('${wid}');renderShop()">BUY</button></div>`
+            : `<div><div class="weapon-price">💰 ${w.price}</div><button class="btn-weapon locked" disabled>🔒 ${w.price}</button></div>`;
+        }
+
+        return `<div class="${cardClass}">
+          <span class="weapon-icon">${w.icon}</span>
+          <div class="weapon-info">
+            <div class="weapon-name">${w.name}</div>
+            <div class="weapon-stats">DMG ${w.damage} · ${w.rateLabel} · ${w.ammoLabel} · ${w.desc}</div>
+          </div>
+          <div class="weapon-action">${actionHtml}</div>
+        </div>`;
+      }).join('');
+    }
+
+    renderList(document.getElementById('shopPrimaryList'), PRIMARY_WEAPONS);
+    renderList(document.getElementById('shopSecondaryList'), SECONDARY_WEAPONS_LIST);
+  }
+  window.renderShop = renderShop;
 
   // ===================== JOIN BY ROOM ID =====================
   function joinSpecificRoom(roomId) {
@@ -1917,6 +2049,30 @@
       closeAllModals();
       startGame({});
     }
+  });
+
+  // HOW TO PLAY button
+  document.getElementById('howToPlayBtn').addEventListener('click', () => {
+    document.getElementById('howToPlayModal').classList.add('show');
+  });
+  document.getElementById('closeHowToPlayBtn').addEventListener('click', () => {
+    document.getElementById('howToPlayModal').classList.remove('show');
+  });
+
+  // GUN SHOP button
+  document.getElementById('gunShopBtn').addEventListener('click', () => {
+    renderShop();
+    document.getElementById('gunShopModal').classList.add('show');
+  });
+  document.getElementById('closeGunShopBtn').addEventListener('click', () => {
+    document.getElementById('gunShopModal').classList.remove('show');
+  });
+
+  // Close new modals on overlay click
+  ['howToPlayModal', 'gunShopModal'].forEach(id => {
+    document.getElementById(id).addEventListener('click', function(e) {
+      if (e.target === this) this.classList.remove('show');
+    });
   });
 
   // Edit username (from dropdown)
