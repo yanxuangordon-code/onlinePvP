@@ -582,8 +582,11 @@
     #scoreHeader {
       position: fixed; top: 0; left: 50%;
       transform: translateX(-50%);
-      display: flex; align-items: center; z-index: 50;
+      align-items: center; z-index: 50;
     }
+    /* The .hud class sets display:none but ID specificity overrides it — fix explicitly */
+    #scoreHeader.hud { display: none; }
+    #scoreHeader.hud.active { display: flex; }
     .score-box { padding: 6px 20px; font-size: 1.2em; font-weight: 900; letter-spacing: 2px; }
     .score-ct { background: rgba(26,58,124,0.85); color: #4fc3f7; border-radius: 0 0 0 6px; }
     .score-t { background: rgba(124,58,26,0.85); color: #ff8a65; border-radius: 0 0 6px 0; }
