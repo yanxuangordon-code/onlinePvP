@@ -1941,13 +1941,14 @@
 
   function quitToMenu() {
     inGame = false;
-    if (gameInstance && gameInstance.socket && gameInstance.socket.socket) {
-      gameInstance.socket.socket.disconnect();
-    }
+    if (gameInstance) gameInstance.stop();
     gameInstance = null;
+    window._gameInstance = null;
+    document.exitPointerLock();
     document.getElementById('gameCanvas').classList.remove('active');
     document.getElementById('gameCanvas').innerHTML = '';
-    hidePause();
+    document.getElementById('pauseOverlay').classList.remove('show');
+    setHUDVisible(false);
     updateProfileUI();
     showHomePage();
     fetchPlayerCount();

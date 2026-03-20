@@ -1303,7 +1303,14 @@ class FPSGame {
 
   // ---- Game Loop ----
 
+  stop() {
+    this._stopped = true;
+    if (this.socket && this.socket.socket) this.socket.socket.disconnect();
+    if (this.renderer) { this.renderer.dispose(); }
+  }
+
   _animate() {
+    if (this._stopped) return;
     requestAnimationFrame(() => this._animate());
 
     const now = Date.now();
