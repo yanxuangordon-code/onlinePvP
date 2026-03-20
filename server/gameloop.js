@@ -261,10 +261,11 @@ class GameLoop {
     let anyHit = null, anyHitPoint = null;
 
     for (let p = 0; p < pellets; p++) {
+    // Camera faces -Z when yaw=0: forward = (-sin(yaw), 0, -cos(yaw))
     const dir = {
-      x: Math.sin(player.yaw) * Math.cos(player.pitch) + (Math.random() - 0.5) * weapon.spread,
+      x: -Math.sin(player.yaw) * Math.cos(player.pitch) + (Math.random() - 0.5) * weapon.spread,
       y: -Math.sin(player.pitch) + (Math.random() - 0.5) * weapon.spread,
-      z: Math.cos(player.yaw) * Math.cos(player.pitch) + (Math.random() - 0.5) * weapon.spread
+      z: -Math.cos(player.yaw) * Math.cos(player.pitch) + (Math.random() - 0.5) * weapon.spread
     };
     const len = Math.sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
     dir.x /= len; dir.y /= len; dir.z /= len;
