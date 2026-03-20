@@ -102,7 +102,14 @@ class FPSGame {
 
     // Input send interval
     this.lastInputSend = 0;
-    this.INPUT_RATE = 50; // ms
+    this.INPUT_RATE = 33; // ms (~30Hz)
+
+    // Sensitivity (overrideable via settings)
+    this.sensitivity = 0.002;
+
+    // Client-side jump prediction
+    this.clientVY = 0;
+    this.clientOnGround = true;
 
     // Scores
     this.scores = { ct: 0, terrorist: 0 };
@@ -128,6 +135,7 @@ class FPSGame {
     this._initLights();
     this._buildMap();
     this._initCamera();
+    this._initPostProcessing();
     this._initInput();
     this.ui.init();
 
@@ -154,6 +162,13 @@ class FPSGame {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
+      if (this.composer) this.composer.setSize(window.innerWidth, window.innerHeight);
+      if (this.fxaaPass) {
+        const pr = Math.min(window.devicePixelRatio, 2);
+        this.fxaaPass.material.uniforms['resolution'].value.set(
+          1 / (window.innerWidth * pr), 1 / (window.innerHeight * pr)
+        );
+      }
     });
   }
 
@@ -188,7 +203,7 @@ class FPSGame {
       [box(0.04, 0.13, 0.06, dark), 0, -0.095, 0.02],
       [box(0.07, 0.04, 0.12, tan), 0, 0.06, -0.02],
     ]);
-    ak.position.set(0.2, -0.18, -0.38); this.camera.add(ak);
+    ak.position.set(0.2, -0.28, -0.38); this.camera.add(ak);
     this.weaponModels.ak47 = ak;
 
     // --- M4A1 ---
@@ -201,7 +216,7 @@ class FPSGame {
       [box(0.065, 0.035, 0.1, metal), 0, 0.055, -0.02],
       [box(0.02, 0.02, 0.08, dark), -0.03, 0.048, -0.3], // sight
     ]);
-    m4.position.set(0.2, -0.18, -0.38); m4.visible = false; this.camera.add(m4);
+    m4.position.set(0.2, -0.28, -0.38); m4.visible = false; this.camera.add(m4);
     this.weaponModels.m4a1 = m4;
 
     // --- AWP (Sniper) ---
@@ -214,7 +229,7 @@ class FPSGame {
       [box(0.04, 0.06, 0.22, blk), 0, 0.065, -0.05], // scope
       [box(0.03, 0.03, 0.18, blk), 0, 0.065, -0.05], // scope lens
     ]);
-    awp.position.set(0.22, -0.18, -0.55); awp.visible = false; this.camera.add(awp);
+    awp.position.set(0.22, -0.28, -0.55); awp.visible = false; this.camera.add(awp);
     this.weaponModels.awp = awp;
 
     // --- Shotgun ---
@@ -225,7 +240,7 @@ class FPSGame {
       [box(0.09, 0.12, 0.18, wood), 0, -0.025, 0.18],
       [box(0.045, 0.06, 0.04, blk), 0, -0.05, -0.02],
     ]);
-    sg.position.set(0.2, -0.18, -0.35); sg.visible = false; this.camera.add(sg);
+    sg.position.set(0.2, -0.28, -0.35); sg.visible = false; this.camera.add(sg);
     this.weaponModels.shotgun = sg;
 
     // --- SMG (UMP-45) ---
@@ -236,7 +251,7 @@ class FPSGame {
       [box(0.05, 0.09, 0.1, dark), 0, -0.018, 0.14],
       [box(0.035, 0.1, 0.05, dark), 0, -0.082, 0.03],
     ]);
-    smg.position.set(0.18, -0.18, -0.3); smg.visible = false; this.camera.add(smg);
+    smg.position.set(0.18, -0.28, -0.3); smg.visible = false; this.camera.add(smg);
     this.weaponModels.smg = smg;
 
     // --- Pistol (Glock) ---
@@ -246,7 +261,7 @@ class FPSGame {
       [box(0.03, 0.03, 0.12, dark), 0, 0.04, -0.14],
       [box(0.05, 0.1, 0.07, wood), 0, -0.1, 0.04],
     ]);
-    pistol.position.set(0.15, -0.18, -0.3); pistol.visible = false; this.camera.add(pistol);
+    pistol.position.set(0.15, -0.28, -0.3); pistol.visible = false; this.camera.add(pistol);
     this.weaponModels.pistol = pistol;
 
     // --- Desert Eagle ---
@@ -257,7 +272,7 @@ class FPSGame {
       [box(0.055, 0.11, 0.09, dark), 0, -0.12, 0.06],
       [box(0.04, 0.06, 0.04, blk), 0, -0.045, 0.02],
     ]);
-    deagle.position.set(0.15, -0.18, -0.3); deagle.visible = false; this.camera.add(deagle);
+    deagle.position.set(0.15, -0.28, -0.3); deagle.visible = false; this.camera.add(deagle);
     this.weaponModels.deagle = deagle;
 
     // Aliases for backward compat
@@ -269,8 +284,34 @@ class FPSGame {
 
   _initScene() {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x1a2a3a);
-    this.scene.fog = new THREE.Fog(0x1a2a3a, 55, 130);
+    this.scene.fog = new THREE.FogExp2(0x0d1a26, 0.007);
+
+    // Gradient sky sphere
+    const skyGeo = new THREE.SphereGeometry(490, 32, 16);
+    const skyMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTop:     { value: new THREE.Color(0x060d18) },
+        uHorizon: { value: new THREE.Color(0x0d1e30) },
+        uGlow:    { value: new THREE.Color(0x112233) },
+      },
+      vertexShader: `
+        varying vec3 vPos;
+        void main() { vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
+      `,
+      fragmentShader: `
+        uniform vec3 uTop; uniform vec3 uHorizon; uniform vec3 uGlow;
+        varying vec3 vPos;
+        void main() {
+          float h = normalize(vPos).y;
+          vec3 col = mix(uGlow, uHorizon, smoothstep(-0.15, 0.05, h));
+          col = mix(col, uTop, smoothstep(0.05, 0.6, h));
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+      side: THREE.BackSide,
+      depthWrite: false,
+    });
+    this.scene.add(new THREE.Mesh(skyGeo, skyMat));
   }
 
   _initLights() {
@@ -316,6 +357,76 @@ class FPSGame {
     const fill = new THREE.DirectionalLight(0x7799cc, 0.4);
     fill.position.set(-30, 15, -20);
     this.scene.add(fill);
+
+    // Emissive ceiling light panels — glow with bloom
+    const panelGeo = new THREE.PlaneGeometry(4, 2);
+    const panelPositions = [
+      [0, 5.9, 0, 0xaaddff],
+      [0, 5.9, -38, 0x4488ff],  // CT base
+      [0, 5.9,  38, 0xff4422],  // T base
+      [-15, 5.9, -20, 0x99bbff],
+      [15, 5.9,  20, 0xff8866],
+      [-15, 5.9,  20, 0xff6644],
+      [15, 5.9, -20, 0x6699ff],
+    ];
+    for (const [x, y, z, col] of panelPositions) {
+      const mat = new THREE.MeshStandardMaterial({
+        color: col, emissive: new THREE.Color(col), emissiveIntensity: 2.5,
+        side: THREE.DoubleSide
+      });
+      const panel = new THREE.Mesh(panelGeo, mat);
+      panel.rotation.x = Math.PI / 2;
+      panel.position.set(x, y, z);
+      this.scene.add(panel);
+    }
+  }
+
+  _initPostProcessing() {
+    if (typeof THREE.EffectComposer === 'undefined') return; // CDN not loaded
+
+    const composer = new THREE.EffectComposer(this.renderer);
+    composer.addPass(new THREE.RenderPass(this.scene, this.camera));
+
+    // Bloom — lights, emissive panels, muzzle flash all glow
+    this.bloomPass = new THREE.UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      0.5,   // strength
+      0.5,   // radius
+      0.80   // threshold
+    );
+    composer.addPass(this.bloomPass);
+
+    // Vignette + subtle color grade
+    const vignetteShader = {
+      uniforms: { tDiffuse: { value: null } },
+      vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
+      fragmentShader: `
+        uniform sampler2D tDiffuse; varying vec2 vUv;
+        void main(){
+          vec4 c = texture2D(tDiffuse, vUv);
+          // Vignette
+          vec2 uv = vUv - 0.5;
+          float v = smoothstep(0.75, 0.25, length(uv) * 1.4);
+          c.rgb *= mix(0.35, 1.0, v);
+          // ACE-style lift + slight desaturate in shadows
+          float luma = dot(c.rgb, vec3(0.299,0.587,0.114));
+          c.rgb = mix(c.rgb, vec3(luma), 0.08 * (1.0 - luma));
+          gl_FragColor = c;
+        }
+      `,
+    };
+    composer.addPass(new THREE.ShaderPass(vignetteShader));
+
+    // FXAA — smooth edges (always last)
+    const fxaaPass = new THREE.ShaderPass(THREE.FXAAShader);
+    const pr = Math.min(window.devicePixelRatio, 2);
+    fxaaPass.material.uniforms['resolution'].value.set(
+      1 / (window.innerWidth * pr), 1 / (window.innerHeight * pr)
+    );
+    this.fxaaPass = fxaaPass;
+    composer.addPass(fxaaPass);
+
+    this.composer = composer;
   }
 
   _buildMap() {
@@ -661,20 +772,24 @@ class FPSGame {
   }
 
   _muzzleFlash() {
-    const flashGeo = new THREE.SphereGeometry(0.05, 4, 4);
-    const flashMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
-    const flash = new THREE.Mesh(flashGeo, flashMat);
     const secondary = new Set(['pistol','deagle']);
     const gunPos = secondary.has(this.weapon) ? { x: 0.15, y: -0.15, z: -0.42 } : { x: 0.2, y: -0.16, z: -0.58 };
+
+    // Emissive flash sphere (bloom picks this up)
+    const flashGeo = new THREE.SphereGeometry(0.06, 6, 6);
+    const flashMat = new THREE.MeshStandardMaterial({
+      color: 0xffdd00, emissive: new THREE.Color(0xffaa00), emissiveIntensity: 6.0
+    });
+    const flash = new THREE.Mesh(flashGeo, flashMat);
     flash.position.set(gunPos.x, gunPos.y, gunPos.z);
     this.camera.add(flash);
-    setTimeout(() => this.camera.remove(flash), 50);
+    setTimeout(() => this.camera.remove(flash), 55);
 
-    // Point light flash
-    const light = new THREE.PointLight(0xffaa00, 3, 5);
+    // Strong point light for scene illumination
+    const light = new THREE.PointLight(0xffaa00, 8, 8);
     light.position.copy(this.camera.position);
     this.scene.add(light);
-    setTimeout(() => this.scene.remove(light), 60);
+    setTimeout(() => this.scene.remove(light), 65);
   }
 
   _recoilAnim() {
@@ -933,10 +1048,17 @@ class FPSGame {
       if (me) {
         this.kills = me.kills;
         this.ui.updateKillScore(me.kills);
-        // Sync Y position so jump is visible
+        // Sync Y: only correct from server if significantly off (let client prediction run)
         const serverCamY = me.y + 0.6;
-        if (Math.abs(serverCamY - this.camera.position.y) > 0.02) {
+        const diff = serverCamY - this.camera.position.y;
+        if (Math.abs(diff) > 0.3) {
+          // Hard snap if very far off
           this.camera.position.y = serverCamY;
+          this.clientVY = 0;
+          this.clientOnGround = (me.y <= 0.91);
+        } else if (Math.abs(diff) > 0.05) {
+          // Gentle lerp to avoid jitter
+          this.camera.position.y += diff * 0.15;
         }
       }
 
@@ -1067,16 +1189,19 @@ class FPSGame {
       this._shoot();
     }
 
-    this.renderer.render(this.scene, this.camera);
+    if (this.composer) {
+      this.composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 
   _processInput(now) {
     if (!this.localId || !this.pointerLocked) return;
 
     // Mouse look
-    const sensitivity = 0.002;
-    this.yaw -= this.mouse.dx * sensitivity;
-    this.pitch -= this.mouse.dy * sensitivity;
+    this.yaw -= this.mouse.dx * this.sensitivity;
+    this.pitch -= this.mouse.dy * this.sensitivity;
     this.pitch = Math.max(-Math.PI / 2.5, Math.min(Math.PI / 2.5, this.pitch));
     this.mouse.dx = 0;
     this.mouse.dy = 0;
@@ -1127,10 +1252,30 @@ class FPSGame {
         }
       }
 
-      // Bobbing
-      if (len > 0) {
-        const bob = Math.sin(now * 0.008) * 0.03;
-        this.camera.position.y = 1.6 + bob;
+      // Client-side vertical prediction (jump + gravity)
+      const GRAVITY_C = -0.015;
+      const JUMP_FORCE_C = 0.25;
+      const EYE_H = 1.5; // camera Y when on ground
+
+      this.clientVY += GRAVITY_C;
+      const newY = this.camera.position.y + this.clientVY;
+      if (newY <= EYE_H) {
+        this.camera.position.y = EYE_H;
+        this.clientVY = 0;
+        this.clientOnGround = true;
+      } else {
+        this.camera.position.y = newY;
+        this.clientOnGround = false;
+      }
+      if (this.keys['Space'] && this.clientOnGround) {
+        this.clientVY = JUMP_FORCE_C;
+        this.clientOnGround = false;
+      }
+
+      // Walk bob (only on ground while moving)
+      if (len > 0 && this.clientOnGround) {
+        const bob = Math.sin(now * 0.008) * 0.025;
+        this.camera.position.y += bob;
       }
     }
   }

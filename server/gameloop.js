@@ -449,18 +449,26 @@ class GameLoop {
       if (dist < minDist) { minDist = dist; nearest = p; }
     }
 
-    if (nearest && minDist < 28) {
-      // Aim toward nearest enemy with slight inaccuracy
+    if (nearest) {
       const dx = nearest.x - bot.x, dz = nearest.z - bot.z;
-      bot.yaw = Math.atan2(-dx, -dz) + (Math.random() - 0.5) * 0.25;
-      bot.pitch = (Math.random() - 0.5) * 0.1;
-      bot.moveForward = minDist > 5;
 
-      // Shoot
-      bot._botShootCooldown--;
-      if (bot._botShootCooldown <= 0) {
-        this.handleShoot(bot.id, {});
-        bot._botShootCooldown = 2 + Math.floor(Math.random() * 5);
+      if (minDist < 70) {
+        // Seek: always navigate toward enemy when in range
+        bot.yaw = Math.atan2(-dx, -dz);
+        bot.pitch = 0;
+        bot.moveForward = minDist > 4;
+      }
+
+      if (minDist < 50) {
+        // Shoot: aim with slight inaccuracy and fire
+        bot.yaw = Math.atan2(-dx, -dz) + (Math.random() - 0.5) * 0.18;
+        bot.pitch = (Math.random() - 0.5) * 0.08;
+
+        bot._botShootCooldown--;
+        if (bot._botShootCooldown <= 0) {
+          this.handleShoot(bot.id, {});
+          bot._botShootCooldown = 2 + Math.floor(Math.random() * 4);
+        }
       }
     }
   }

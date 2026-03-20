@@ -788,6 +788,35 @@
     }
     #flagToast.show { display: block; animation: toastIn 0.3s ease; }
     @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(-8px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+
+    /* ===================== SETTINGS MODAL ===================== */
+    .settings-section { margin-bottom: 18px; }
+    .settings-section-title {
+      font-size: 0.72em; letter-spacing: 2px; color: var(--muted);
+      font-weight: bold; text-transform: uppercase;
+      border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 14px;
+    }
+    .settings-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 14px; gap: 12px;
+    }
+    .settings-row label { font-size: 0.9em; color: var(--text); flex: 1; }
+    .settings-row .val { color: var(--blue); font-weight: bold; min-width: 36px; text-align: right; }
+    .settings-range { width: 140px; accent-color: #e74c3c; cursor: pointer; }
+    .settings-toggle {
+      background: var(--panel2); border: 1px solid var(--border);
+      color: var(--muted); border-radius: 20px; padding: 5px 16px;
+      cursor: pointer; font-weight: bold; font-size: 0.82em;
+      font-family: inherit; letter-spacing: 1px; transition: all 0.2s;
+    }
+    .settings-toggle.on { background: rgba(46,204,113,0.2); border-color: rgba(46,204,113,0.5); color: #2ecc71; }
+    .settings-apply {
+      background: linear-gradient(135deg,#e74c3c,#c0392b); color: #fff;
+      border: none; border-radius: 8px; padding: 10px 28px;
+      cursor: pointer; font-weight: bold; font-size: 0.9em;
+      font-family: inherit; letter-spacing: 1px; transition: opacity 0.2s;
+    }
+    .settings-apply:hover { opacity: 0.85; }
   </style>
 </head>
 <body>
@@ -980,6 +1009,46 @@
   </div>
 </div>
 
+<!-- ===================== SETTINGS MODAL ===================== -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-window" style="width:460px">
+    <div class="modal-header">
+      <span class="modal-title">⚙ SETTINGS</span>
+      <button class="modal-close" id="closeSettingsBtn">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-section">
+        <div class="settings-section-title">Controls</div>
+        <div class="settings-row">
+          <label>Mouse Sensitivity</label>
+          <span class="val" id="sensitivityVal">3.0</span>
+          <input class="settings-range" type="range" id="sensitivitySlider" min="0.5" max="10" step="0.1" value="3.0">
+        </div>
+        <div class="settings-row">
+          <label>Field of View</label>
+          <span class="val" id="fovVal">75</span>°
+          <input class="settings-range" type="range" id="fovSlider" min="60" max="110" step="1" value="75">
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-section-title">Graphics</div>
+        <div class="settings-row">
+          <label>Bloom Effect</label>
+          <button class="settings-toggle on" id="bloomToggle">ON</button>
+        </div>
+        <div class="settings-row">
+          <label>Bloom Strength</label>
+          <span class="val" id="bloomStrVal">0.5</span>
+          <input class="settings-range" type="range" id="bloomStrSlider" min="0" max="2" step="0.05" value="0.5">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;justify-content:flex-end">
+      <button class="settings-apply" id="applySettingsBtn">APPLY</button>
+    </div>
+  </div>
+</div>
+
 <!-- ===================== HOME PAGE ===================== -->
 <div id="homePage">
   <!-- Top Bar -->
@@ -1165,6 +1234,14 @@
 <!-- ===================== SCRIPTS ===================== -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+<!-- Three.js post-processing (bloom, FXAA, vignette) -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/FXAAShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script src="client/config.js"></script>
 <script src="client/socket.js"></script>
 <script src="client/ui.js"></script>
@@ -1697,6 +1774,11 @@
 
     gameInstance = new FPSGame(SERVER_URL);
 
+    // Apply saved graphics/control settings
+    const savedSettings = stats.settings || {};
+    if (savedSettings.sensitivity) gameInstance.sensitivity = savedSettings.sensitivity * 0.001;
+    // FOV and bloom applied after init() runs (onJoined callback)
+
     // Callback: called when server confirms join
     gameInstance.onJoined = function(data) {
       currentMode = data.mode || 'tdm';
@@ -1794,6 +1876,7 @@
     document.getElementById('createServerModal').classList.remove('show');
     document.getElementById('howToPlayModal').classList.remove('show');
     document.getElementById('gunShopModal').classList.remove('show');
+    document.getElementById('settingsModal').classList.remove('show');
   }
 
   // ===================== GUN SHOP RENDER =====================
@@ -2001,10 +2084,73 @@
   });
 
   // Close new modals on overlay click
-  ['howToPlayModal', 'gunShopModal'].forEach(id => {
+  ['howToPlayModal', 'gunShopModal', 'settingsModal'].forEach(id => {
     document.getElementById(id).addEventListener('click', function(e) {
       if (e.target === this) this.classList.remove('show');
     });
+  });
+
+  // SETTINGS button
+  document.getElementById('settingsBtn').addEventListener('click', () => {
+    // Load saved values
+    const savedSettings = stats.settings || {};
+    if (savedSettings.sensitivity) {
+      document.getElementById('sensitivitySlider').value = savedSettings.sensitivity;
+      document.getElementById('sensitivityVal').textContent = parseFloat(savedSettings.sensitivity).toFixed(1);
+    }
+    if (savedSettings.fov) {
+      document.getElementById('fovSlider').value = savedSettings.fov;
+      document.getElementById('fovVal').textContent = savedSettings.fov;
+    }
+    if (savedSettings.bloomOn === false) {
+      const t = document.getElementById('bloomToggle');
+      t.classList.remove('on'); t.textContent = 'OFF';
+    }
+    if (savedSettings.bloomStr !== undefined) {
+      document.getElementById('bloomStrSlider').value = savedSettings.bloomStr;
+      document.getElementById('bloomStrVal').textContent = parseFloat(savedSettings.bloomStr).toFixed(2);
+    }
+    document.getElementById('settingsModal').classList.add('show');
+  });
+  document.getElementById('closeSettingsBtn').addEventListener('click', () => {
+    document.getElementById('settingsModal').classList.remove('show');
+  });
+  document.getElementById('sensitivitySlider').addEventListener('input', function() {
+    document.getElementById('sensitivityVal').textContent = parseFloat(this.value).toFixed(1);
+  });
+  document.getElementById('fovSlider').addEventListener('input', function() {
+    document.getElementById('fovVal').textContent = this.value;
+  });
+  document.getElementById('bloomStrSlider').addEventListener('input', function() {
+    document.getElementById('bloomStrVal').textContent = parseFloat(this.value).toFixed(2);
+  });
+  document.getElementById('bloomToggle').addEventListener('click', function() {
+    const on = this.classList.toggle('on');
+    this.textContent = on ? 'ON' : 'OFF';
+  });
+  document.getElementById('applySettingsBtn').addEventListener('click', () => {
+    const sensitivity = parseFloat(document.getElementById('sensitivitySlider').value);
+    const fov = parseInt(document.getElementById('fovSlider').value);
+    const bloomOn = document.getElementById('bloomToggle').classList.contains('on');
+    const bloomStr = parseFloat(document.getElementById('bloomStrSlider').value);
+
+    // Apply live to running game
+    if (gameInstance) {
+      gameInstance.sensitivity = sensitivity * 0.001;
+      if (gameInstance.camera) {
+        gameInstance.camera.fov = fov;
+        gameInstance.camera.updateProjectionMatrix();
+      }
+      if (gameInstance.bloomPass) {
+        gameInstance.bloomPass.enabled = bloomOn;
+        gameInstance.bloomPass.strength = bloomStr;
+      }
+    }
+
+    // Persist
+    stats.settings = { sensitivity, fov, bloomOn, bloomStr };
+    saveStats(stats);
+    document.getElementById('settingsModal').classList.remove('show');
   });
 
   // Edit username (from dropdown)
