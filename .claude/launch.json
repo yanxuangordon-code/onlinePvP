@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Game Server (dev)",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["nodemon", "server/server.js"],
+      "port": 3000
+    },
+    {
+      "name": "Game Server (prod)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "port": 3000
+    }
+  ]
+}
