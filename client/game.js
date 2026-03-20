@@ -114,6 +114,10 @@ class FPSGame {
     // Scores
     this.scores = { ct: 0, terrorist: 0 };
     this.allPlayers = [];
+
+    // Screen shake
+    this.screenShakeAmt = 0;
+    this.screenShakeDecay = 0.85;
   }
 
   // Client-side wall collision (mirrors server collidesWithWall)
@@ -432,121 +436,141 @@ class FPSGame {
   _buildMap() {
     const self = this;
 
-    // Procedural textures
-    function makeTexture(color1, color2, size, pattern) {
+    // ---- High-quality procedural textures ----
+    function makeTex(size, drawFn) {
       const canvas = document.createElement('canvas');
-      canvas.width = 128; canvas.height = 128;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = color1;
-      ctx.fillRect(0, 0, 128, 128);
-      if (pattern === 'grid') {
-        ctx.strokeStyle = color2;
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 128; i += 32) {
-          ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 128); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(128, i); ctx.stroke();
-        }
-      } else if (pattern === 'concrete') {
-        // Subtle noise for concrete look
-        for (let x = 0; x < 128; x += 4) for (let y = 0; y < 128; y += 4) {
-          const v = Math.random() * 12 - 6;
-          ctx.fillStyle = `rgba(${v > 0 ? 255 : 0},${v > 0 ? 255 : 0},${v > 0 ? 255 : 0},${Math.abs(v)/100})`;
-          ctx.fillRect(x, y, 4, 4);
-        }
-        ctx.strokeStyle = color2; ctx.lineWidth = 1;
-        for (let i = 0; i <= 128; i += 32) {
-          ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 128); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(128, i); ctx.stroke();
-        }
-      } else if (pattern === 'checker') {
-        for (let x = 0; x < 4; x++) for (let y = 0; y < 4; y++) {
-          if ((x + y) % 2 === 0) { ctx.fillStyle = color2; ctx.fillRect(x * 32, y * 32, 32, 32); }
-        }
-      } else if (pattern === 'planks') {
-        // Wooden planks
-        for (let y = 0; y < 128; y += 16) {
-          const off = (Math.floor(y / 16) % 2) * 64;
-          ctx.fillStyle = color2;
-          ctx.fillRect(0, y, 128, 1);
-          for (let x = off; x < 128; x += 64) ctx.fillRect(x, y, 1, 16);
-        }
-      }
+      canvas.width = size; canvas.height = size;
+      drawFn(canvas.getContext('2d'), size);
       const tex = new THREE.CanvasTexture(canvas);
       tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-      tex.repeat.set(size, size);
       return tex;
     }
 
-    const floorTex  = makeTexture('#7a7a7a', '#5a5a5a', 25, 'grid');
-    const wallTex   = makeTexture('#9a9590', '#7a7570', 3, 'concrete');
-    const ctTex     = makeTexture('#0d2a4a', '#0f3560', 6, 'grid');
-    const tTex      = makeTexture('#4a1008', '#6a1810', 6, 'grid');
-    const boxTex    = makeTexture('#9a7828', '#7a5818', 3, 'planks');
+    // Concrete block wall (realistic mortar seams + noise)
+    const wallTex = makeTex(512, (ctx, S) => {
+      ctx.fillStyle = '#8c8880'; ctx.fillRect(0, 0, S, S);
+      const bW = 128, bH = 56;
+      for (let row = 0; row < Math.ceil(S / bH) + 1; row++) {
+        const off = (row % 2) * (bW / 2);
+        for (let col = -1; col < Math.ceil(S / bW) + 1; col++) {
+          const bx = col * bW + off, by = row * bH;
+          const vari = Math.random() * 18 - 9;
+          const base = 140 + vari;
+          ctx.fillStyle = `rgb(${base - 3|0},${base - 5|0},${base - 12|0})`;
+          ctx.fillRect(bx + 3, by + 3, bW - 6, bH - 6);
+          // micro noise
+          for (let n = 0; n < 30; n++) {
+            const nv = Math.random() * 14 - 7;
+            ctx.fillStyle = `rgba(${nv>0?255:0},${nv>0?255:0},${nv>0?255:0},${Math.abs(nv)/90})`;
+            ctx.fillRect(bx + 3 + Math.random()*(bW-8), by + 3 + Math.random()*(bH-8), 3, 3);
+          }
+        }
+      }
+      // Mortar seams
+      ctx.strokeStyle = '#5a574e'; ctx.lineWidth = 6;
+      for (let row = 0; row <= Math.ceil(S/bH)+1; row++) { ctx.beginPath(); ctx.moveTo(0,row*bH); ctx.lineTo(S,row*bH); ctx.stroke(); }
+      for (let row = 0; row <= Math.ceil(S/bH)+1; row++) {
+        const off = (row%2)*(bW/2);
+        for (let col = 0; col <= Math.ceil(S/bW)+1; col++) { ctx.beginPath(); ctx.moveTo(col*bW+off,row*bH); ctx.lineTo(col*bW+off,(row+1)*bH); ctx.stroke(); }
+      }
+    });
+    wallTex.repeat.set(4, 2);
 
-    function makeMat(tex, color, roughness, metalness) {
-      return new THREE.MeshStandardMaterial({ map: tex, color: color || 0xffffff, roughness: roughness !== undefined ? roughness : 0.85, metalness: metalness !== undefined ? metalness : 0.0 });
-    }
+    // Industrial concrete floor tiles
+    const floorTex = makeTex(512, (ctx, S) => {
+      ctx.fillStyle = '#686868'; ctx.fillRect(0, 0, S, S);
+      // Noise
+      for (let x = 0; x < S; x += 3) for (let y = 0; y < S; y += 3) {
+        const v = Math.random()*18-9;
+        ctx.fillStyle = `rgba(${v>0?255:0},${v>0?255:0},${v>0?255:0},${Math.abs(v)/110})`;
+        ctx.fillRect(x,y,3,3);
+      }
+      // Large tiles
+      const tileS = 128;
+      ctx.strokeStyle = '#4a4a4a'; ctx.lineWidth = 5;
+      for (let i=0;i<=S;i+=tileS){ ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,S);ctx.stroke(); ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(S,i);ctx.stroke(); }
+      // Inner tile highlight
+      ctx.strokeStyle = '#787878'; ctx.lineWidth = 1;
+      for (let tx=0;tx<S/tileS;tx++) for (let ty=0;ty<S/tileS;ty++) {
+        ctx.strokeRect(tx*tileS+5,ty*tileS+5,tileS-10,tileS-10);
+      }
+    });
+    floorTex.repeat.set(20, 20);
 
-    // Floor
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(100, 100),
-      makeMat(floorTex)
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true;
-    self.scene.add(floor);
+    // Wood crate with planks + metal brackets
+    const boxTex = makeTex(256, (ctx, S) => {
+      for (let row = 0; row < 8; row++) {
+        const y = row * 32, off = (row%2)*128;
+        const wc = 90 + Math.floor(Math.random()*20);
+        ctx.fillStyle = `rgb(${wc+20},${wc},${wc-25})`; ctx.fillRect(0,y,S,30);
+        ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=1;
+        for (let g=0;g<5;g++){ ctx.beginPath();ctx.moveTo(0,y+g*6);ctx.lineTo(S,y+g*6+Math.random()*2);ctx.stroke(); }
+        ctx.strokeStyle='#3a1a00'; ctx.lineWidth=3;
+        ctx.beginPath();ctx.moveTo(0,y+30);ctx.lineTo(S,y+30);ctx.stroke();
+        ctx.beginPath();ctx.moveTo(off+128,y);ctx.lineTo(off+128,y+30);ctx.stroke();
+      }
+      // Metal corner brackets
+      ctx.fillStyle='#555';
+      [[0,0],[S,0],[0,S],[S,S],[S/2,0],[S/2,S],[0,S/2],[S,S/2]].forEach(([x,y])=>{
+        ctx.fillRect(x-5,y-2,10,4); ctx.fillRect(x-2,y-5,4,10);
+      });
+    });
+    boxTex.repeat.set(1, 1);
 
-    // Boundary walls
-    const wallH = 6;
-    const wallMat = makeMat(wallTex);
-    const boundaryWalls = [
-      { pos: [0, wallH/2, -50], size: [100, wallH, 0.5] },
-      { pos: [0, wallH/2,  50], size: [100, wallH, 0.5] },
-      { pos: [-50, wallH/2, 0], size: [0.5, wallH, 100] },
-      { pos: [ 50, wallH/2, 0], size: [0.5, wallH, 100] },
-    ];
-    for (const w of boundaryWalls) {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(...w.size), wallMat);
-      mesh.position.set(...w.pos);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      self.scene.add(mesh);
-    }
+    // Dark metal ceiling with panel lines
+    const ceilTex = makeTex(256, (ctx, S) => {
+      ctx.fillStyle = '#2e3238'; ctx.fillRect(0, 0, S, S);
+      for (let x=0;x<S;x+=4) for (let y=0;y<S;y+=4) {
+        const v=Math.random()*6-3; ctx.fillStyle=`rgba(${v>0?255:0},${v>0?255:0},${v>0?255:0},${Math.abs(v)/100})`; ctx.fillRect(x,y,4,4);
+      }
+      ctx.strokeStyle='#1a1e22'; ctx.lineWidth=4;
+      for (let i=0;i<=S;i+=64){ ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,S);ctx.stroke(); ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(S,i);ctx.stroke(); }
+      // Rivets
+      ctx.fillStyle='#4a4e52';
+      [[10,10],[54,10],[10,54],[54,54],[10,138],[54,138],[10,182],[54,182],[138,10],[182,10],[138,54],[182,54],[138,138],[182,138],[138,182],[182,182]].forEach(([x,y])=>{
+        ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
+      });
+    });
+    ceilTex.repeat.set(8, 8);
 
-    // CT spawn area (blue)
-    const ctSpawn = new THREE.Mesh(
-      new THREE.PlaneGeometry(20, 12),
-      makeMat(ctTex)
-    );
-    ctSpawn.rotation.x = -Math.PI / 2;
-    ctSpawn.position.set(0, 0.01, -41);
-    self.scene.add(ctSpawn);
+    // CT spawn zone - tactical blue with directional arrows
+    const ctTex = makeTex(256, (ctx, S) => {
+      ctx.fillStyle='#091830'; ctx.fillRect(0,0,S,S);
+      ctx.strokeStyle='rgba(30,80,200,0.25)'; ctx.lineWidth=1;
+      for (let i=0;i<=S;i+=24){ ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,S);ctx.stroke(); ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(S,i);ctx.stroke(); }
+      ctx.fillStyle='rgba(40,100,220,0.35)';
+      [64,192].forEach(cy=>{
+        ctx.beginPath(); ctx.moveTo(88,cy-22); ctx.lineTo(168,cy); ctx.lineTo(88,cy+22); ctx.lineTo(108,cy); ctx.closePath(); ctx.fill();
+      });
+      // CT text watermark
+      ctx.fillStyle='rgba(60,130,255,0.12)'; ctx.font='bold 64px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('CT',S/2,S/2);
+    });
+    ctTex.repeat.set(2, 2);
 
-    // T spawn area (red)
-    const tSpawn = new THREE.Mesh(
-      new THREE.PlaneGeometry(20, 12),
-      makeMat(tTex)
-    );
-    tSpawn.rotation.x = -Math.PI / 2;
-    tSpawn.position.set(0, 0.01, 41);
-    self.scene.add(tSpawn);
+    // T spawn zone - tactical red
+    const tTex = makeTex(256, (ctx, S) => {
+      ctx.fillStyle='#1e0808'; ctx.fillRect(0,0,S,S);
+      ctx.strokeStyle='rgba(200,30,30,0.25)'; ctx.lineWidth=1;
+      for (let i=0;i<=S;i+=24){ ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,S);ctx.stroke(); ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(S,i);ctx.stroke(); }
+      ctx.fillStyle='rgba(220,40,40,0.35)';
+      [64,192].forEach(cy=>{
+        ctx.beginPath(); ctx.moveTo(168,cy-22); ctx.lineTo(88,cy); ctx.lineTo(168,cy+22); ctx.lineTo(148,cy); ctx.closePath(); ctx.fill();
+      });
+      ctx.fillStyle='rgba(255,60,60,0.12)'; ctx.font='bold 64px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('T',S/2,S/2);
+    });
+    tTex.repeat.set(2, 2);
 
-    // Spawn walls (CT)
-    const spawnWallMat = new THREE.MeshStandardMaterial({ color: 0x2244aa, roughness: 0.7, metalness: 0.1 });
-    const spawnWall_CT = new THREE.Mesh(new THREE.BoxGeometry(20, 5, 0.5), spawnWallMat);
-    spawnWall_CT.position.set(0, 2.5, -45.5);
-    self.scene.add(spawnWall_CT);
+    const std = (map, col, rough, metal) => new THREE.MeshStandardMaterial({ map, color: col||0xffffff, roughness: rough!==undefined?rough:0.85, metalness: metal||0 });
 
-    // Spawn walls (T)
-    const spawnWallMatT = new THREE.MeshStandardMaterial({ color: 0xaa4422, roughness: 0.7, metalness: 0.1 });
-    const spawnWall_T = new THREE.Mesh(new THREE.BoxGeometry(20, 5, 0.5), spawnWallMatT);
-    spawnWall_T.position.set(0, 2.5, 45.5);
-    self.scene.add(spawnWall_T);
-
-    // --- CS-style map structures ---
-    const boxMat = makeMat(boxTex);
-    const concreteMatDark = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.9, metalness: 0.0 });
-    const concreteMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.85, metalness: 0.0 });
+    const wallMat       = std(wallTex,  0xffffff, 0.9,  0.02);
+    const floorMat      = std(floorTex, 0xffffff, 0.85, 0.05);
+    const ceilMat       = std(ceilTex,  0xffffff, 0.6,  0.3);
+    const boxMat        = std(boxTex,   0xffffff, 0.95, 0.0);
+    const concreteMat   = new THREE.MeshStandardMaterial({ color: 0x7a7874, roughness: 0.9, metalness: 0.0 });
+    const concreteMatDk = new THREE.MeshStandardMaterial({ color: 0x575450, roughness: 0.9, metalness: 0.0 });
+    const metalMat      = new THREE.MeshStandardMaterial({ color: 0x555a60, roughness: 0.4, metalness: 0.7 });
+    const ctWallMat     = new THREE.MeshStandardMaterial({ color: 0x1a3a88, roughness: 0.7, metalness: 0.15, emissive: 0x0a1a44, emissiveIntensity: 0.3 });
+    const tWallMat      = new THREE.MeshStandardMaterial({ color: 0x882222, roughness: 0.7, metalness: 0.15, emissive: 0x440a0a, emissiveIntensity: 0.3 });
 
     function addBox(x, y, z, w, h, d, mat) {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || boxMat);
@@ -557,102 +581,195 @@ class FPSGame {
       return mesh;
     }
 
-    // Central building
-    addBox(0, 2, 0, 6, 4, 6, concreteMat);
-    // Roof
-    addBox(0, 4.1, 0, 6.4, 0.2, 6.4, concreteMatDark);
+    // ---- Floor ----
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    self.scene.add(floor);
 
-    // CT side long wall cover
-    addBox(-15, 1, -20, 8, 2, 0.4, concreteMat);
-    addBox(15, 1, -20, 8, 2, 0.4, concreteMat);
-    // CT pillars
-    addBox(-8, 1.5, -30, 0.4, 3, 8, concreteMat);
-    addBox(8, 1.5, -30, 0.4, 3, 8, concreteMat);
+    // ---- Ceiling ----
+    const wallH = 6;
+    const ceil = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), ceilMat);
+    ceil.rotation.x = Math.PI / 2;
+    ceil.position.y = wallH;
+    ceil.receiveShadow = true;
+    self.scene.add(ceil);
 
-    // T side cover
-    addBox(-15, 1, 20, 8, 2, 0.4, concreteMat);
-    addBox(15, 1, 20, 8, 2, 0.4, concreteMat);
-    // T pillars
-    addBox(-8, 1.5, 30, 0.4, 3, 8, concreteMat);
-    addBox(8, 1.5, 30, 0.4, 3, 8, concreteMat);
-
-    // Mid boxes (cover/crates)
-    addBox(-10, 0.75, 0, 3, 1.5, 3); // Left mid crate
-    addBox(10, 0.75, 0, 3, 1.5, 3);  // Right mid crate
-    addBox(0, 0.75, -12, 3, 1.5, 3); // CT mid crate
-    addBox(0, 0.75, 12, 3, 1.5, 3);  // T mid crate
-
-    // Stacked crates
-    addBox(-10, 2.25, 0, 2, 1, 2);
-    addBox(10, 2.25, 0, 2, 1, 2);
-
-    // Side long walls
-    addBox(-25, 2, 0, 0.4, 4, 20, concreteMat);
-    addBox(25, 2, 0, 0.4, 4, 20, concreteMat);
-
-    // Catwalks/platforms on sides
-    addBox(-22, 2.5, -8, 6, 0.3, 3, concreteMatDark);
-    addBox(-22, 2.5, 8, 6, 0.3, 3, concreteMatDark);
-    addBox(22, 2.5, -8, 6, 0.3, 3, concreteMatDark);
-    addBox(22, 2.5, 8, 6, 0.3, 3, concreteMatDark);
-
-    // Small barriers near center
-    addBox(-5, 0.5, -5, 0.3, 1, 4, concreteMat);
-    addBox(5, 0.5, -5, 0.3, 1, 4, concreteMat);
-    addBox(-5, 0.5, 5, 0.3, 1, 4, concreteMat);
-    addBox(5, 0.5, 5, 0.3, 1, 4, concreteMat);
-
-    // Extra scattered crates
-    addBox(-18, 0.6, -10, 1.5, 1.2, 1.5);
-    addBox(-18, 0.6, 10, 1.5, 1.2, 1.5);
-    addBox(18, 0.6, -10, 1.5, 1.2, 1.5);
-    addBox(18, 0.6, 10, 1.5, 1.2, 1.5);
-    addBox(-18, 1.8, -10, 1.2, 1, 1.2);
-    addBox(18, 1.8, 10, 1.2, 1, 1.2);
-
-    // Objective markers (A/B sites visual)
-    const siteMat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0x333300, roughness: 0.7, metalness: 0.0 });
-    const siteA = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), siteMat);
-    siteA.rotation.x = -Math.PI / 2;
-    siteA.position.set(-20, 0.02, 0);
-    self.scene.add(siteA);
-    const siteB = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), siteMat);
-    siteB.rotation.x = -Math.PI / 2;
-    siteB.position.set(20, 0.02, 0);
-    self.scene.add(siteB);
-
-    // Add site labels
-    // (done via canvas texture for simplicity)
-    function makeLabelTexture(text, color) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 128; canvas.height = 128;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = color;
-      ctx.font = 'bold 80px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(text, 64, 64);
-      return new THREE.CanvasTexture(canvas);
+    // ---- Boundary walls ----
+    for (const w of [
+      { pos: [0, wallH/2, -50], size: [100, wallH, 0.5] },
+      { pos: [0, wallH/2,  50], size: [100, wallH, 0.5] },
+      { pos: [-50, wallH/2, 0], size: [0.5, wallH, 100] },
+      { pos: [ 50, wallH/2, 0], size: [0.5, wallH, 100] },
+    ]) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(...w.size), wallMat);
+      mesh.position.set(...w.pos); mesh.castShadow = true; mesh.receiveShadow = true;
+      self.scene.add(mesh);
     }
 
-    const labelA = new THREE.Mesh(
-      new THREE.PlaneGeometry(4, 4),
-      new THREE.MeshBasicMaterial({ map: makeLabelTexture('A', '#000'), transparent: true })
-    );
-    labelA.rotation.x = -Math.PI / 2;
-    labelA.position.set(-20, 0.03, 0);
-    self.scene.add(labelA);
+    // ---- Wall base trim (metal strip at floor level) ----
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0x3a3e44, roughness: 0.4, metalness: 0.8 });
+    for (const w of [
+      { pos: [0, 0.08, -49.8], size: [100, 0.16, 0.12] },
+      { pos: [0, 0.08,  49.8], size: [100, 0.16, 0.12] },
+      { pos: [-49.8, 0.08, 0], size: [0.12, 0.16, 100] },
+      { pos: [ 49.8, 0.08, 0], size: [0.12, 0.16, 100] },
+    ]) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(...w.size), trimMat);
+      mesh.position.set(...w.pos); self.scene.add(mesh);
+    }
 
-    const labelB = new THREE.Mesh(
-      new THREE.PlaneGeometry(4, 4),
-      new THREE.MeshBasicMaterial({ map: makeLabelTexture('B', '#000'), transparent: true })
-    );
-    labelB.rotation.x = -Math.PI / 2;
-    labelB.position.set(20, 0.03, 0);
-    self.scene.add(labelB);
+    // ---- Ceiling light strips ----
+    const lightStripMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff, emissive: new THREE.Color(0xddeeff), emissiveIntensity: 3.5,
+      roughness: 0.5, metalness: 0.3
+    });
+    const lightHousingMat = new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 0.5, metalness: 0.6 });
+    const stripPositions = [
+      [0, 0], [-20, -15], [20, -15], [-20, 15], [20, 15],
+      [0, -30], [0, 30], [-10, 0], [10, 0],
+    ];
+    for (const [sx, sz] of stripPositions) {
+      // Housing box
+      const housing = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 2.5), lightHousingMat);
+      housing.position.set(sx, wallH - 0.05, sz);
+      self.scene.add(housing);
+      // Emissive strip
+      const strip = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 2.2), lightStripMat);
+      strip.position.set(sx, wallH - 0.07, sz);
+      self.scene.add(strip);
+    }
 
-    // Fog matches dark arena sky
-    this.scene.fog = new THREE.Fog(0x1a2a3a, 55, 130);
+    // ---- CT spawn zone ----
+    const ctSpawn = new THREE.Mesh(new THREE.PlaneGeometry(22, 14), std(ctTex));
+    ctSpawn.rotation.x = -Math.PI/2; ctSpawn.position.set(0, 0.01, -41);
+    self.scene.add(ctSpawn);
+
+    // ---- T spawn zone ----
+    const tSpawn = new THREE.Mesh(new THREE.PlaneGeometry(22, 14), std(tTex));
+    tSpawn.rotation.x = -Math.PI/2; tSpawn.position.set(0, 0.01, 41);
+    self.scene.add(tSpawn);
+
+    // ---- Spawn back walls with emissive color ----
+    addBox(0, 2.5, -45.5, 22, 5, 0.5, ctWallMat);
+    addBox(0, 2.5,  45.5, 22, 5, 0.5, tWallMat);
+    // Side spawn walls
+    addBox(-11, 2.5, -42, 0.5, 5, 8, ctWallMat);
+    addBox( 11, 2.5, -42, 0.5, 5, 8, ctWallMat);
+    addBox(-11, 2.5,  42, 0.5, 5, 8, tWallMat);
+    addBox( 11, 2.5,  42, 0.5, 5, 8, tWallMat);
+
+    // ---- Central building ----
+    addBox(0, 2, 0, 6, 4, 6, concreteMat);
+    addBox(0, 4.1, 0, 6.5, 0.22, 6.5, concreteMatDk);
+    // Metal corner trim on building
+    for (const [cx,cz] of [[-3,-3],[-3,3],[3,-3],[3,3]]) {
+      addBox(cx, 2, cz, 0.15, 4, 0.15, metalMat);
+    }
+
+    // ---- CT side cover walls ----
+    addBox(-15, 1, -20, 8, 2, 0.4, concreteMat);
+    addBox( 15, 1, -20, 8, 2, 0.4, concreteMat);
+    // Pillars
+    addBox(-8, 1.5, -30, 0.5, 3, 8, concreteMat);
+    addBox( 8, 1.5, -30, 0.5, 3, 8, concreteMat);
+    // Metal top cap on pillars
+    addBox(-8, 3.1, -30, 0.7, 0.15, 8.2, metalMat);
+    addBox( 8, 3.1, -30, 0.7, 0.15, 8.2, metalMat);
+
+    // ---- T side cover walls ----
+    addBox(-15, 1, 20, 8, 2, 0.4, concreteMat);
+    addBox( 15, 1, 20, 8, 2, 0.4, concreteMat);
+    addBox(-8, 1.5, 30, 0.5, 3, 8, concreteMat);
+    addBox( 8, 1.5, 30, 0.5, 3, 8, concreteMat);
+    addBox(-8, 3.1, 30, 0.7, 0.15, 8.2, metalMat);
+    addBox( 8, 3.1, 30, 0.7, 0.15, 8.2, metalMat);
+
+    // ---- Mid crates (stacked) ----
+    addBox(-10, 0.75, 0, 3, 1.5, 3);
+    addBox( 10, 0.75, 0, 3, 1.5, 3);
+    addBox(  0, 0.75,-12, 3, 1.5, 3);
+    addBox(  0, 0.75, 12, 3, 1.5, 3);
+    // Stacked top crates (smaller, slightly offset)
+    addBox(-10, 2.25, 0, 2, 1, 2);
+    addBox( 10, 2.25, 0, 2, 1, 2);
+
+    // ---- Side corridors ----
+    addBox(-25, 2, 0, 0.4, 4, 20, concreteMat);
+    addBox( 25, 2, 0, 0.4, 4, 20, concreteMat);
+    // Metal catwalk platforms
+    addBox(-22, 2.5, -8, 6, 0.25, 3, metalMat);
+    addBox(-22, 2.5,  8, 6, 0.25, 3, metalMat);
+    addBox( 22, 2.5, -8, 6, 0.25, 3, metalMat);
+    addBox( 22, 2.5,  8, 6, 0.25, 3, metalMat);
+    // Catwalk railings
+    for (const [rx,rz,rw,rd] of [
+      [-22,  -9.4, 6, 0.08], [-22,  -6.6, 6, 0.08],
+      [-22,   6.6, 6, 0.08], [-22,   9.4, 6, 0.08],
+      [ 22,  -9.4, 6, 0.08], [ 22,  -6.6, 6, 0.08],
+      [ 22,   6.6, 6, 0.08], [ 22,   9.4, 6, 0.08],
+    ]) { addBox(rx, 3.2, rz, rw, 0.8, rd, metalMat); }
+
+    // ---- Center barriers ----
+    addBox(-5, 0.5, -5, 0.3, 1, 4, concreteMat);
+    addBox( 5, 0.5, -5, 0.3, 1, 4, concreteMat);
+    addBox(-5, 0.5,  5, 0.3, 1, 4, concreteMat);
+    addBox( 5, 0.5,  5, 0.3, 1, 4, concreteMat);
+
+    // ---- Scattered crates ----
+    addBox(-18, 0.6, -10, 1.5, 1.2, 1.5);
+    addBox(-18, 0.6,  10, 1.5, 1.2, 1.5);
+    addBox( 18, 0.6, -10, 1.5, 1.2, 1.5);
+    addBox( 18, 0.6,  10, 1.5, 1.2, 1.5);
+    addBox(-18, 1.8, -10, 1.2,  1.0, 1.2);
+    addBox( 18, 1.8,  10, 1.2,  1.0, 1.2);
+
+    // ---- Support pillars (structural, near walls) ----
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x4a4e54, roughness: 0.5, metalness: 0.5 });
+    for (const [px,pz] of [[-40,-40],[-40,40],[40,-40],[40,40],[-40,0],[40,0],[0,-40],[0,40]]) {
+      addBox(px, wallH/2, pz, 0.6, wallH, 0.6, pillarMat);
+      // Base plate
+      addBox(px, 0.06, pz, 1.0, 0.12, 1.0, metalMat);
+      // Cap plate
+      addBox(px, wallH-0.06, pz, 0.9, 0.12, 0.9, metalMat);
+    }
+
+    // ---- Site markers (A/B) ----
+    function makeSiteTex(letter) {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = 'rgba(220,200,20,0.85)'; ctx.fillRect(0,0,256,256);
+      // inner lighter area
+      ctx.fillStyle = 'rgba(255,240,60,0.5)'; ctx.fillRect(12,12,232,232);
+      ctx.fillStyle = '#1a1a00'; ctx.font = 'bold 140px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(letter, 128, 128);
+      ctx.strokeStyle = '#888800'; ctx.lineWidth = 8; ctx.strokeRect(6,6,244,244);
+      return new THREE.CanvasTexture(c);
+    }
+    for (const [x,letter] of [[-20,'A'],[20,'B']]) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(7, 7),
+        new THREE.MeshStandardMaterial({ map: makeSiteTex(letter), roughness: 0.8, emissive: 0x333300, emissiveIntensity: 0.4 }));
+      m.rotation.x = -Math.PI/2; m.position.set(x, 0.02, 0);
+      self.scene.add(m);
+    }
+
+    // ---- Barrel props (decorative) ----
+    const barrelMat = new THREE.MeshStandardMaterial({ color: 0x3a5a2a, roughness: 0.6, metalness: 0.4 });
+    const barrelGeo = new THREE.CylinderGeometry(0.3, 0.28, 0.9, 10);
+    const barrelRingMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.3, metalness: 0.8 });
+    const barrelRingGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.06, 10);
+    for (const [bx, bz] of [[-12,-18],[12,18],[-12,18],[12,-18],[0,-22],[0,22]]) {
+      const barrel = new THREE.Mesh(barrelGeo, barrelMat);
+      barrel.position.set(bx, 0.45, bz); barrel.castShadow = true; barrel.receiveShadow = true;
+      self.scene.add(barrel);
+      const ring1 = new THREE.Mesh(barrelRingGeo, barrelRingMat);
+      ring1.position.set(bx, 0.72, bz); self.scene.add(ring1);
+      const ring2 = new THREE.Mesh(barrelRingGeo, barrelRingMat);
+      ring2.position.set(bx, 0.18, bz); self.scene.add(ring2);
+    }
+
+    // ---- Fog (indoor — tight) ----
+    this.scene.fog = new THREE.Fog(0x1a2030, 60, 140);
   }
 
   // ---- Input ----
@@ -884,63 +1001,90 @@ class FPSGame {
   // ---- Remote Players ----
 
   _createPlayerMesh(team) {
-    const group = new THREE.Group();
+    const isCT = team === 'ct';
+    const g = new THREE.Group();
 
-    // Body
-    const bodyMat = new THREE.MeshStandardMaterial({
-      color: team === 'ct' ? 0x1a3a7c : 0x7c3a1a, roughness: 0.8, metalness: 0.1
-    });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.0, 0.3), bodyMat);
-    body.position.y = 0.5;
-    body.castShadow = true;
-    group.add(body);
+    const bodyCol   = isCT ? 0x1e3d70 : 0x6b2010;
+    const armorCol  = isCT ? 0x2a5298 : 0x8b2800;
+    const helmetCol = isCT ? 0x1a3060 : 0x4a1500;
+    const pantsCol  = isCT ? 0x0e1e40 : 0x220a00;
+    const gloveCol  = 0x1a1a1a;
+    const skinCol   = 0xc8a882;
+    const gunMetalCol = 0x222428;
+    const visorCol  = isCT ? 0x4488ff : 0xff6633;
 
-    // Head
-    const headMat = new THREE.MeshStandardMaterial({ color: 0xffcc99, roughness: 0.9, metalness: 0.0 });
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), headMat);
-    head.position.y = 1.3;
-    head.castShadow = true;
-    group.add(head);
+    const mat = (col, rough, metal) => new THREE.MeshStandardMaterial({ color: col, roughness: rough||0.8, metalness: metal||0 });
 
-    // Helmet
-    const helmetMat = new THREE.MeshStandardMaterial({
-      color: team === 'ct' ? 0x2255aa : 0x553311, roughness: 0.5, metalness: 0.4
-    });
-    const helmet = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.25, 0.45), helmetMat);
-    helmet.position.y = 1.55;
-    group.add(helmet);
+    const mk = (w, h, d, col, rough, metal) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(col, rough, metal));
+    const add = (mesh, x, y, z) => { mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true; g.add(mesh); return mesh; };
 
-    // Arms
-    const armMat = bodyMat;
-    const lArm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.2), armMat);
-    lArm.position.set(-0.4, 0.5, 0);
-    lArm.castShadow = true;
-    group.add(lArm);
+    // --- Torso ---
+    add(mk(0.58, 0.95, 0.28, bodyCol, 0.9, 0.0), 0, 0.52, 0);
+    // Chest armor plate
+    add(mk(0.50, 0.55, 0.08, armorCol, 0.5, 0.2), 0, 0.62, -0.18);
+    // Shoulder pads
+    add(mk(0.16, 0.18, 0.22, armorCol, 0.5, 0.25), -0.37, 0.88, 0);
+    add(mk(0.16, 0.18, 0.22, armorCol, 0.5, 0.25),  0.37, 0.88, 0);
+    // Belt
+    add(mk(0.60, 0.08, 0.30, 0x1a1a1a, 0.6, 0.3), 0, 0.07, 0);
+    // Small pouch on belt
+    add(mk(0.10, 0.12, 0.10, 0x333333, 0.8, 0.1), -0.22, 0.07, -0.15);
 
-    const rArm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.2), armMat);
-    rArm.position.set(0.4, 0.5, 0);
-    rArm.castShadow = true;
-    group.add(rArm);
+    // --- Head ---
+    add(mk(0.38, 0.36, 0.36, skinCol, 0.9, 0.0), 0, 1.30, 0);
+    // Helmet shell
+    add(mk(0.44, 0.22, 0.44, helmetCol, 0.4, 0.3), 0, 1.52, 0);
+    // Helmet brim
+    add(mk(0.46, 0.05, 0.20, helmetCol, 0.4, 0.35), 0, 1.40, -0.22);
+    // Visor / face guard
+    const visorMesh = mk(0.38, 0.10, 0.06, visorCol, 0.1, 0.6);
+    visorMesh.material.emissive = new THREE.Color(visorCol);
+    visorMesh.material.emissiveIntensity = 0.2;
+    add(visorMesh, 0, 1.26, -0.20);
+    // Ear protection
+    add(mk(0.06, 0.20, 0.24, helmetCol, 0.5, 0.2), -0.24, 1.40, 0);
+    add(mk(0.06, 0.20, 0.24, helmetCol, 0.5, 0.2),  0.24, 1.40, 0);
 
-    // Gun (carried by remote player)
-    const gunMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4, metalness: 0.8 });
-    const gun = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.4), gunMat);
-    gun.position.set(0.4, 0.8, -0.3);
-    group.add(gun);
+    // --- Arms ---
+    const upperArmCol = bodyCol;
+    // Left upper arm
+    add(mk(0.20, 0.38, 0.20, upperArmCol, 0.85, 0.0), -0.40, 0.70, 0);
+    // Left forearm (gloved)
+    add(mk(0.18, 0.32, 0.18, gloveCol, 0.7, 0.15), -0.40, 0.36, 0);
+    // Left hand
+    add(mk(0.16, 0.14, 0.10, gloveCol, 0.7, 0.15), -0.40, 0.17, -0.04);
+    // Right upper arm
+    add(mk(0.20, 0.38, 0.20, upperArmCol, 0.85, 0.0),  0.40, 0.70, 0);
+    // Right forearm
+    add(mk(0.18, 0.32, 0.18, gloveCol, 0.7, 0.15),  0.40, 0.36, 0);
+    // Right hand (angled for weapon hold)
+    add(mk(0.16, 0.14, 0.10, gloveCol, 0.7, 0.15),  0.40, 0.17, -0.04);
 
-    // Legs
-    const legMat = new THREE.MeshStandardMaterial({ color: team === 'ct' ? 0x0a1a3c : 0x2a1000, roughness: 0.8, metalness: 0.05 });
-    const lLeg = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.7, 0.25), legMat);
-    lLeg.position.set(-0.17, -0.35, 0);
-    lLeg.castShadow = true;
-    group.add(lLeg);
+    // --- Weapon (carried at right side) ---
+    // Receiver
+    add(mk(0.07, 0.08, 0.40, gunMetalCol, 0.35, 0.85), 0.40, 0.80, -0.22);
+    // Barrel
+    add(mk(0.04, 0.04, 0.28, gunMetalCol, 0.3, 0.9),   0.40, 0.83, -0.48);
+    // Magazine
+    add(mk(0.05, 0.14, 0.06, 0x1a1a1a, 0.5, 0.5),     0.40, 0.70, -0.18);
+    // Stock
+    add(mk(0.06, 0.07, 0.14, 0x3a3a3a, 0.6, 0.4),     0.40, 0.79, -0.0);
 
-    const rLeg = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.7, 0.25), legMat);
-    rLeg.position.set(0.17, -0.35, 0);
-    rLeg.castShadow = true;
-    group.add(rLeg);
+    // --- Legs ---
+    // Upper legs
+    add(mk(0.24, 0.50, 0.24, pantsCol, 0.9, 0.0), -0.16, -0.24, 0);
+    add(mk(0.24, 0.50, 0.24, pantsCol, 0.9, 0.0),  0.16, -0.24, 0);
+    // Knee pads
+    add(mk(0.22, 0.14, 0.14, armorCol, 0.5, 0.2), -0.16, -0.38, -0.10);
+    add(mk(0.22, 0.14, 0.14, armorCol, 0.5, 0.2),  0.16, -0.38, -0.10);
+    // Lower legs
+    add(mk(0.20, 0.42, 0.20, pantsCol, 0.9, 0.0), -0.16, -0.70, 0);
+    add(mk(0.20, 0.42, 0.20, pantsCol, 0.9, 0.0),  0.16, -0.70, 0);
+    // Boots
+    add(mk(0.22, 0.12, 0.26, 0x111111, 0.8, 0.1), -0.16, -0.94, -0.02);
+    add(mk(0.22, 0.12, 0.26, 0x111111, 0.8, 0.1),  0.16, -0.94, -0.02);
 
-    return group;
+    return g;
   }
 
   _createNameLabel(name, team) {
@@ -1075,9 +1219,14 @@ class FPSGame {
       // Screen flash
       const flash = document.getElementById('damageFlash');
       if (flash) {
-        flash.style.opacity = '0.4';
-        setTimeout(() => { flash.style.opacity = '0'; }, 300);
+        flash.style.opacity = '0.5';
+        setTimeout(() => { flash.style.opacity = '0'; }, 350);
       }
+
+      // Screen shake — intensity scales with damage taken
+      const prevHealth = this.health + (data.prevHealth ? 0 : 0);
+      this.screenShakeAmt = Math.min(0.06, 0.02 + (100 - data.health) * 0.0004);
+      this.screenShakeDecay = 0.82;
     });
 
     this.socket.on('playerKilled', (data) => {
@@ -1187,6 +1336,15 @@ class FPSGame {
     // Auto-fire for automatic weapons
     if (this.shootHeld && this.WEAPON_AUTO[this.weapon] && this.alive && this.pointerLocked) {
       this._shoot();
+    }
+
+    // Screen shake
+    if (this.screenShakeAmt > 0.001) {
+      this.camera.position.x += (Math.random() - 0.5) * this.screenShakeAmt;
+      this.camera.position.y += (Math.random() - 0.5) * this.screenShakeAmt * 0.6;
+      this.screenShakeAmt *= this.screenShakeDecay;
+    } else {
+      this.screenShakeAmt = 0;
     }
 
     if (this.composer) {
