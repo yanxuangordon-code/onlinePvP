@@ -20,10 +20,45 @@ const io = new Server(server, {
 });
 
 app.use(cors({ origin: CLIENT_ORIGIN }));
+app.use(express.json());
 app.use(express.static(path.join(__dirname, '..')));
+
+// In-memory stats store (cloud save — persists for server session)
+const playerStatsStore = new Map();
 
 // Health check for Railway
 app.get('/health', (req, res) => res.json({ status: 'ok', players: gameLoop.players.size }));
+
+// Player count endpoint (used by home page)
+app.get('/api/playercount', (req, res) => {
+  res.json({ count: gameLoop.players.size });
+});
+
+// Load cloud stats for a player
+app.get('/api/stats/:name', (req, res) => {
+  const name = decodeURIComponent(req.params.name);
+  const stats = playerStatsStore.get(name);
+  res.json(stats || {});
+});
+
+// Save cloud stats for a player
+app.post('/api/stats/:name', (req, res) => {
+  const name = decodeURIComponent(req.params.name);
+  const existing = playerStatsStore.get(name) || {};
+  const incoming = req.body || {};
+  // Merge: always take the higher value for numeric stats
+  const merged = {
+    playerName: name,
+    totalKills: Math.max(existing.totalKills || 0, incoming.totalKills || 0),
+    totalDeaths: Math.max(existing.totalDeaths || 0, incoming.totalDeaths || 0),
+    totalGames: Math.max(existing.totalGames || 0, incoming.totalGames || 0),
+    bestKillStreak: Math.max(existing.bestKillStreak || 0, incoming.bestKillStreak || 0),
+    highestScore: Math.max(existing.highestScore || 0, incoming.highestScore || 0),
+    lastPlayed: incoming.lastPlayed || existing.lastPlayed || null
+  };
+  playerStatsStore.set(name, merged);
+  res.json({ ok: true, stats: merged });
+});
 
 const gameLoop = new GameLoop(io);
 gameLoop.start();
