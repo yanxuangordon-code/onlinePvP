@@ -3,477 +3,703 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FPS Arena - Multiplayer Browser FPS</title>
+  <title>OnlinePvP - Multiplayer Browser FPS</title>
   <style>
+    :root {
+      --bg: #0d1117;
+      --panel: #161b22;
+      --panel2: #21262d;
+      --accent: #e74c3c;
+      --accent2: #4fc3f7;
+      --green: #2ecc71;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --border: rgba(255,255,255,0.08);
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
-      background: #1a1a1a;
-      font-family: 'Segoe UI', Arial, sans-serif;
+      background: var(--bg);
+      font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+      color: var(--text);
       overflow: hidden;
       user-select: none;
+      height: 100vh;
     }
 
-    #gameCanvas {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
+    /* ===================== BACKGROUND CANVAS ===================== */
+    #bgCanvas {
+      position: fixed; inset: 0; z-index: 0;
+      opacity: 0.25; pointer-events: none;
     }
 
-    /* ===================== OVERLAY / MENU ===================== */
-    #overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.85);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      color: #fff;
-    }
-
-    #overlay h1 {
-      font-size: 3em;
-      font-weight: 900;
-      letter-spacing: 4px;
-      color: #e74c3c;
-      text-shadow: 0 0 20px rgba(231,76,60,0.6);
-      margin-bottom: 8px;
-    }
-    #overlay .subtitle {
-      color: #aaa;
-      margin-bottom: 40px;
-      font-size: 1em;
-      letter-spacing: 2px;
-    }
-
-    #overlay input {
-      background: rgba(255,255,255,0.1);
-      border: 2px solid rgba(255,255,255,0.2);
-      border-radius: 6px;
-      color: #fff;
-      font-size: 1.1em;
-      padding: 12px 20px;
-      width: 280px;
-      margin-bottom: 16px;
-      text-align: center;
-      outline: none;
-      transition: border-color 0.2s;
-    }
-    #overlay input:focus { border-color: #e74c3c; }
-
-    #overlay button {
-      background: #e74c3c;
-      border: none;
-      border-radius: 6px;
-      color: #fff;
-      font-size: 1.1em;
-      font-weight: bold;
-      padding: 14px 40px;
-      cursor: pointer;
-      letter-spacing: 2px;
-      transition: background 0.2s, transform 0.1s;
-      margin-bottom: 20px;
-    }
-    #overlay button:hover { background: #c0392b; transform: scale(1.03); }
-    #overlay button:active { transform: scale(0.97); }
-
-    .controls-hint {
-      color: #888;
-      font-size: 0.8em;
-      text-align: center;
-      line-height: 1.8;
-      margin-top: 10px;
-    }
-    .controls-hint span { color: #aaa; }
-
-    #connectionStatus {
-      position: absolute;
-      bottom: 20px;
-      color: #888;
-      font-size: 0.8em;
-    }
-
-    /* ===================== LOADING ===================== */
+    /* ===================== LOADING SCREEN ===================== */
     #loadingScreen {
-      position: fixed;
-      inset: 0;
-      background: #0a0a0a;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 200;
-      color: #fff;
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 1000;
     }
-    #loadingScreen h2 { color: #e74c3c; font-size: 2em; margin-bottom: 16px; }
-    .loader {
-      width: 40px; height: 40px;
+    .loader-logo {
+      font-size: 2.8em; font-weight: 900;
+      color: var(--accent); letter-spacing: 4px;
+      text-shadow: 0 0 30px rgba(231,76,60,0.5);
+      margin-bottom: 24px;
+    }
+    .loader-bar {
+      width: 220px; height: 3px;
+      background: var(--panel2); border-radius: 2px; overflow: hidden;
+    }
+    .loader-fill {
+      height: 100%; background: var(--accent); border-radius: 2px;
+      animation: loadFill 1.4s ease-in-out forwards;
+    }
+    @keyframes loadFill { 0%{width:0} 60%{width:70%} 100%{width:100%} }
+    .loader-text { color: var(--muted); font-size: 0.78em; margin-top: 12px; letter-spacing: 2px; }
+
+    /* ===================== USERNAME MODAL ===================== */
+    #usernameModal {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.88);
+      display: none; align-items: center; justify-content: center;
+      z-index: 500; backdrop-filter: blur(6px);
+    }
+    #usernameModal.show { display: flex; }
+    .modal-card {
+      background: var(--panel);
+      border: 1px solid rgba(231,76,60,0.3);
+      border-radius: 14px; padding: 44px 40px;
+      width: 360px; text-align: center;
+      box-shadow: 0 0 40px rgba(231,76,60,0.15), 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .modal-logo-icon { font-size: 3em; margin-bottom: 16px; }
+    .modal-card h2 { font-size: 1.4em; margin-bottom: 6px; }
+    .modal-card p { color: var(--muted); font-size: 0.88em; margin-bottom: 24px; line-height: 1.5; }
+    .modal-input {
+      width: 100%;
+      background: var(--panel2); border: 2px solid var(--border);
+      border-radius: 8px; color: var(--text);
+      font-size: 1.1em; padding: 12px 16px;
+      text-align: center; outline: none;
+      transition: border-color 0.2s; margin-bottom: 16px;
+    }
+    .modal-input:focus { border-color: var(--accent); }
+    .modal-input::placeholder { color: var(--muted); }
+    .btn-primary {
+      background: var(--accent); border: none; border-radius: 8px;
+      color: #fff; font-size: 1em; font-weight: bold;
+      padding: 13px 32px; cursor: pointer; letter-spacing: 1px;
+      width: 100%; transition: background 0.2s, transform 0.1s;
+    }
+    .btn-primary:hover { background: #c0392b; }
+    .btn-primary:active { transform: scale(0.98); }
+
+    /* ===================== HOME PAGE ===================== */
+    #homePage {
+      position: fixed; inset: 0; z-index: 10;
+      display: none; flex-direction: column;
+    }
+    #homePage.show { display: flex; }
+
+    /* Top bar */
+    .topbar {
+      height: 52px; background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 20px; gap: 14px; flex-shrink: 0; z-index: 1;
+    }
+    .topbar-logo {
+      font-size: 1.35em; font-weight: 900;
+      color: var(--accent); letter-spacing: 3px;
+      text-shadow: 0 0 12px rgba(231,76,60,0.4);
+    }
+    .topbar-badge {
+      color: var(--muted); font-size: 0.7em;
+      border: 1px solid var(--border);
+      padding: 2px 8px; border-radius: 4px;
+    }
+    .topbar-spacer { flex: 1; }
+    .topbar-status {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.78em; color: var(--muted);
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--green);
+      animation: blink 2s ease-in-out infinite;
+    }
+    .status-dot.offline { background: var(--accent); animation: none; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .topbar-btn {
+      background: var(--panel2); border: 1px solid var(--border);
+      border-radius: 6px; color: var(--muted);
+      font-size: 0.82em; padding: 6px 14px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .topbar-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+    /* 3-column layout */
+    .home-content {
+      flex: 1; display: grid;
+      grid-template-columns: 270px 1fr 270px;
+      overflow: hidden;
+    }
+
+    /* Side panels */
+    .side-panel {
+      background: var(--panel); padding: 18px;
+      overflow-y: auto; display: flex;
+      flex-direction: column; gap: 14px;
+    }
+    .side-panel.left { border-right: 1px solid var(--border); }
+    .side-panel.right { border-left: 1px solid var(--border); }
+    .panel-title {
+      font-size: 0.68em; font-weight: bold;
+      color: var(--muted); letter-spacing: 2px;
+      text-transform: uppercase; padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Profile card */
+    .profile-card {
+      background: var(--panel2); border-radius: 10px;
+      padding: 20px; text-align: center;
+      border: 1px solid var(--border);
+    }
+    .profile-avatar {
+      width: 70px; height: 70px; border-radius: 50%;
+      margin: 0 auto 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.8em; font-weight: 900; color: #fff;
+      border: 3px solid rgba(231,76,60,0.5);
+      box-shadow: 0 0 16px rgba(231,76,60,0.2);
+    }
+    .profile-name { font-size: 1.05em; font-weight: bold; margin-bottom: 3px; }
+    .profile-sub { color: var(--muted); font-size: 0.78em; margin-bottom: 10px; }
+    .profile-edit-btn {
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 6px; color: var(--muted);
+      font-size: 0.72em; padding: 4px 14px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .profile-edit-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+    /* Stats grid */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-box {
+      background: var(--panel2); border-radius: 8px;
+      padding: 11px; text-align: center;
+      border: 1px solid var(--border);
+    }
+    .stat-value { font-size: 1.35em; font-weight: 900; }
+    .stat-value.red { color: var(--accent); }
+    .stat-value.blue { color: var(--accent2); }
+    .stat-value.green { color: var(--green); }
+    .stat-label {
+      font-size: 0.62em; color: var(--muted);
+      letter-spacing: 1px; text-transform: uppercase; margin-top: 2px;
+    }
+
+    /* Rank badge */
+    .rank-badge {
+      background: linear-gradient(135deg, #2a1f00, #3d2e00);
+      border: 1px solid rgba(255,204,0,0.3);
+      border-radius: 8px; padding: 10px 14px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .rank-icon { font-size: 1.5em; }
+    .rank-info { text-align: left; }
+    .rank-name { font-size: 0.8em; font-weight: bold; color: #ffcc00; }
+    .rank-desc { font-size: 0.68em; color: var(--muted); }
+
+    /* Center */
+    .home-center {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 28px; padding: 40px; position: relative;
+      background: radial-gradient(ellipse at center, rgba(231,76,60,0.04) 0%, transparent 70%);
+    }
+
+    .game-logo { text-align: center; }
+    .game-logo h1 {
+      font-size: 3.8em; font-weight: 900;
+      letter-spacing: 5px; color: var(--text);
+      text-shadow: 0 0 40px rgba(231,76,60,0.25);
+      line-height: 1;
+    }
+    .game-logo .logo-sub {
+      font-size: 0.68em; color: var(--accent);
+      letter-spacing: 7px; text-transform: uppercase; margin-top: 6px;
+    }
+
+    /* Play section */
+    .play-section { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .btn-play {
+      background: var(--accent); border: none; border-radius: 14px;
+      color: #fff; font-size: 1.7em; font-weight: 900;
+      padding: 22px 90px; cursor: pointer; letter-spacing: 5px;
+      transition: all 0.2s;
+      box-shadow: 0 0 30px rgba(231,76,60,0.35), 0 6px 20px rgba(0,0,0,0.4);
+      position: relative; overflow: hidden;
+    }
+    .btn-play::after {
+      content: '';
+      position: absolute; top: 0; left: -100%;
+      width: 100%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+      transition: left 0.5s;
+    }
+    .btn-play:hover::after { left: 100%; }
+    .btn-play:hover {
+      background: #c0392b; transform: scale(1.04);
+      box-shadow: 0 0 50px rgba(231,76,60,0.55), 0 10px 30px rgba(0,0,0,0.5);
+    }
+    .btn-play:active { transform: scale(0.97); }
+    .play-hint { color: var(--muted); font-size: 0.8em; letter-spacing: 1px; }
+
+    /* Game info cards */
+    .game-cards {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 10px; width: 100%; max-width: 480px;
+    }
+    .game-card {
+      background: var(--panel2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 14px 10px; text-align: center;
+    }
+    .game-card .card-icon { font-size: 1.4em; margin-bottom: 4px; }
+    .game-card .card-label { color: var(--muted); font-size: 0.65em; letter-spacing: 1px; text-transform: uppercase; }
+    .game-card .card-value { font-size: 0.9em; font-weight: bold; margin-top: 3px; color: var(--text); }
+
+    /* Controls list */
+    .controls-list { display: flex; flex-direction: column; gap: 7px; }
+    .control-row { display: flex; align-items: center; gap: 10px; font-size: 0.82em; }
+    .key {
+      background: var(--panel2); border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px; padding: 3px 8px;
+      font-size: 0.75em; font-weight: bold; color: var(--accent2);
+      min-width: 50px; text-align: center; flex-shrink: 0;
+    }
+    .ctrl-desc { color: var(--muted); }
+
+    /* Tip items */
+    .tip-item {
+      background: var(--panel2); border-radius: 8px;
+      padding: 12px 14px; border-left: 3px solid var(--accent);
+    }
+    .tip-title { font-size: 0.82em; font-weight: bold; margin-bottom: 4px; }
+    .tip-text { font-size: 0.78em; color: var(--muted); line-height: 1.5; }
+
+    /* Bottom bar */
+    .bottombar {
+      height: 30px; background: var(--panel);
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 16px; gap: 20px; flex-shrink: 0; z-index: 1;
+    }
+    .bottom-item {
+      font-size: 0.68em; color: var(--muted);
+      display: flex; align-items: center; gap: 5px;
+    }
+    .bottom-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
+
+    /* ===================== CONNECTING SCREEN ===================== */
+    #connectingScreen {
+      position: fixed; inset: 0;
+      background: rgba(13,17,23,0.96);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 200; backdrop-filter: blur(4px);
+    }
+    #connectingScreen.show { display: flex; }
+    .spin {
+      width: 52px; height: 52px;
       border: 4px solid rgba(231,76,60,0.2);
-      border-top-color: #e74c3c;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.8s linear infinite; margin-bottom: 20px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .conn-title { font-size: 1.2em; font-weight: bold; letter-spacing: 2px; margin-bottom: 8px; }
+    .conn-sub { color: var(--muted); font-size: 0.82em; }
 
-    /* ===================== HUD ===================== */
+    /* ===================== GAME CANVAS ===================== */
+    #gameCanvas {
+      position: fixed; inset: 0;
+      z-index: 5; display: none;
+    }
+    #gameCanvas.active { display: block; }
+
+    /* ===================== PAUSE OVERLAY ===================== */
+    #pauseOverlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 80; backdrop-filter: blur(3px);
+    }
+    #pauseOverlay.show { display: flex; }
+    .pause-title {
+      font-size: 2.2em; font-weight: 900;
+      letter-spacing: 4px; color: var(--text); margin-bottom: 8px;
+    }
+    .pause-sub { color: var(--muted); margin-bottom: 30px; font-size: 0.9em; }
+    .pause-btns { display: flex; flex-direction: column; gap: 12px; width: 200px; }
+    .pause-btn {
+      border: none; border-radius: 8px;
+      font-size: 1em; font-weight: bold;
+      padding: 13px; cursor: pointer;
+      letter-spacing: 1px; transition: all 0.2s;
+    }
+    .pause-btn.resume { background: var(--accent); color: #fff; }
+    .pause-btn.resume:hover { background: #c0392b; }
+    .pause-btn.quit { background: var(--panel2); color: var(--muted); border: 1px solid var(--border); }
+    .pause-btn.quit:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+    /* ===================== HUD ELEMENTS ===================== */
+    .hud { display: none; }
+    .hud.active { display: block; }
 
     /* Crosshair */
     #crosshair {
-      position: fixed;
-      top: 50%; left: 50%;
+      position: fixed; top: 50%; left: 50%;
       transform: translate(-50%, -50%);
       width: 20px; height: 20px;
-      pointer-events: none;
-      z-index: 50;
+      pointer-events: none; z-index: 50;
     }
     #crosshair::before, #crosshair::after {
-      content: '';
-      position: absolute;
-      background: rgba(255,255,255,0.9);
-      border-radius: 2px;
+      content: ''; position: absolute;
+      background: rgba(255,255,255,0.9); border-radius: 2px;
     }
-    #crosshair::before { /* horizontal */
+    #crosshair::before {
       width: 14px; height: 2px;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
+      top: 50%; left: 50%; transform: translate(-50%,-50%);
       box-shadow: 0 0 2px rgba(0,0,0,0.8);
     }
-    #crosshair::after { /* vertical */
+    #crosshair::after {
       width: 2px; height: 14px;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
+      top: 50%; left: 50%; transform: translate(-50%,-50%);
       box-shadow: 0 0 2px rgba(0,0,0,0.8);
     }
-    /* Dot */
     #crosshairDot {
-      position: fixed;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
       width: 3px; height: 3px;
-      background: rgba(255,80,80,0.9);
-      border-radius: 50%;
-      pointer-events: none;
-      z-index: 51;
+      background: rgba(255,80,80,0.9); border-radius: 50%;
+      pointer-events: none; z-index: 51;
     }
-    #crosshair.hit::before, #crosshair.hit::after {
-      background: #e74c3c;
-    }
+    #crosshair.hit::before, #crosshair.hit::after { background: var(--accent); }
 
     /* Health */
-    #healthBar {
-      position: fixed;
-      bottom: 24px; left: 24px;
-      width: 200px;
-      z-index: 50;
+    #healthBar { position: fixed; bottom: 24px; left: 24px; width: 200px; z-index: 50; }
+    #healthBar .hud-label {
+      color: #aaa; font-size: 11px; letter-spacing: 1px;
+      margin-bottom: 4px; display: flex; justify-content: space-between;
     }
-    #healthBar .label {
-      color: #aaa;
-      font-size: 11px;
-      letter-spacing: 1px;
-      margin-bottom: 4px;
-      display: flex;
-      justify-content: space-between;
-    }
-    #healthBar .bar-bg {
-      background: rgba(0,0,0,0.5);
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 3px;
-      height: 10px;
-      overflow: hidden;
+    .bar-bg {
+      background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 3px; height: 10px; overflow: hidden;
     }
     #healthFill {
-      height: 100%;
-      width: 100%;
-      background: #2ecc71;
-      border-radius: 3px;
-      transition: width 0.15s, background-color 0.3s;
+      height: 100%; width: 100%; background: #2ecc71;
+      border-radius: 3px; transition: width 0.15s, background-color 0.3s;
     }
 
     /* Ammo */
-    #ammoDisplay {
-      position: fixed;
-      bottom: 24px; right: 24px;
-      text-align: right;
-      z-index: 50;
-    }
-    #weaponName {
-      color: #ffcc00;
-      font-size: 13px;
-      font-weight: bold;
-      letter-spacing: 2px;
-      margin-bottom: 2px;
-    }
-    #ammoCount {
-      color: #fff;
-      font-size: 2.2em;
-      font-weight: 900;
-      line-height: 1;
-      text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
-    }
+    #ammoDisplay { position: fixed; bottom: 24px; right: 24px; text-align: right; z-index: 50; }
+    #weaponName { color: #ffcc00; font-size: 13px; font-weight: bold; letter-spacing: 2px; margin-bottom: 2px; }
+    #ammoCount { color: #fff; font-size: 2.2em; font-weight: 900; line-height: 1; text-shadow: 1px 1px 3px rgba(0,0,0,0.8); }
     #ammoSlash { color: #666; font-size: 1.2em; margin: 0 4px; }
     #ammoReserve { color: #aaa; font-size: 1.2em; }
-
-    /* Reload indicator */
     #reloadIndicator {
-      position: fixed;
-      bottom: 80px; right: 24px;
-      color: #ffcc00;
-      font-size: 14px;
-      font-weight: bold;
-      letter-spacing: 2px;
-      display: none;
-      z-index: 50;
+      position: fixed; bottom: 80px; right: 24px;
+      color: #ffcc00; font-size: 14px; font-weight: bold;
+      letter-spacing: 2px; display: none; z-index: 50;
       animation: pulse 0.5s ease-in-out infinite alternate;
     }
-    @keyframes pulse { from { opacity: 1; } to { opacity: 0.4; } }
+    @keyframes pulse { from{opacity:1} to{opacity:0.4} }
 
-    /* Team & kill display */
-    #teamDisplay {
-      position: fixed;
-      top: 16px; left: 16px;
-      z-index: 50;
-    }
-    #teamName {
-      font-size: 14px;
-      font-weight: bold;
-      letter-spacing: 2px;
-    }
-    #killScore {
-      color: #aaa;
-      font-size: 12px;
-      margin-top: 2px;
-    }
+    /* Team & kills */
+    #teamDisplay { position: fixed; top: 16px; left: 16px; z-index: 50; }
+    #teamName { font-size: 14px; font-weight: bold; letter-spacing: 2px; }
+    #killScore { color: #aaa; font-size: 12px; margin-top: 2px; }
 
     /* Score header */
     #scoreHeader {
-      position: fixed;
-      top: 0; left: 50%;
+      position: fixed; top: 0; left: 50%;
       transform: translateX(-50%);
-      display: flex;
-      align-items: center;
-      gap: 0;
-      z-index: 50;
+      display: flex; align-items: center; z-index: 50;
     }
-    .score-box {
-      padding: 6px 20px;
-      font-size: 1.2em;
-      font-weight: 900;
-      letter-spacing: 2px;
-    }
-    .score-ct {
-      background: rgba(26,58,124,0.85);
-      color: #4fc3f7;
-      border-radius: 0 0 0 6px;
-    }
-    .score-t {
-      background: rgba(124,58,26,0.85);
-      color: #ff8a65;
-      border-radius: 0 0 6px 0;
-    }
-    .score-divider {
-      background: rgba(0,0,0,0.7);
-      color: #666;
-      padding: 6px 10px;
-      font-size: 0.9em;
-    }
+    .score-box { padding: 6px 20px; font-size: 1.2em; font-weight: 900; letter-spacing: 2px; }
+    .score-ct { background: rgba(26,58,124,0.85); color: #4fc3f7; border-radius: 0 0 0 6px; }
+    .score-t { background: rgba(124,58,26,0.85); color: #ff8a65; border-radius: 0 0 6px 0; }
+    .score-divider { background: rgba(0,0,0,0.7); color: #666; padding: 6px 10px; font-size: 0.9em; }
 
     /* Kill feed */
-    #killFeed {
-      position: fixed;
-      top: 60px; right: 16px;
-      z-index: 50;
-      text-align: right;
-      pointer-events: none;
-    }
+    #killFeed { position: fixed; top: 60px; right: 16px; z-index: 50; text-align: right; pointer-events: none; }
     .kill-entry {
-      background: rgba(0,0,0,0.6);
-      padding: 4px 10px;
-      margin-bottom: 4px;
-      border-radius: 4px;
-      font-size: 13px;
+      background: rgba(0,0,0,0.6); padding: 4px 10px;
+      margin-bottom: 4px; border-radius: 4px; font-size: 13px;
       animation: fadeIn 0.2s ease;
     }
-    @keyframes fadeIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; } }
+    @keyframes fadeIn { from{opacity:0;transform:translateX(10px)} to{opacity:1} }
 
     /* Minimap */
     #minimap {
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 50;
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%); z-index: 50;
       border: 2px solid rgba(255,255,255,0.2);
-      border-radius: 4px;
-      overflow: hidden;
+      border-radius: 4px; overflow: hidden;
     }
-    #minimapCanvas {
-      display: block;
-      width: 120px;
-      height: 120px;
-    }
+    #minimapCanvas { display: block; width: 120px; height: 120px; }
 
     /* Scoreboard */
     #scoreboard {
-      position: fixed;
-      inset: 0;
+      position: fixed; inset: 0;
       background: rgba(0,0,0,0.85);
-      z-index: 60;
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      z-index: 60; display: none;
+      flex-direction: column; align-items: center; justify-content: center;
     }
-    #scoreboard h2 {
-      color: #fff;
-      font-size: 1.5em;
-      letter-spacing: 3px;
-      margin-bottom: 20px;
-    }
-    .score-teams {
-      display: flex;
-      gap: 40px;
-      margin-bottom: 20px;
-    }
+    #scoreboard h2 { color: #fff; font-size: 1.5em; letter-spacing: 3px; margin-bottom: 20px; }
+    .score-teams { display: flex; gap: 40px; margin-bottom: 20px; }
     .score-team-box {
-      text-align: center;
-      padding: 10px 30px;
-      border-radius: 6px;
-      font-size: 2em;
-      font-weight: 900;
+      text-align: center; padding: 10px 30px;
+      border-radius: 6px; font-size: 2em; font-weight: 900;
     }
     .score-team-ct { background: rgba(26,58,124,0.7); color: #4fc3f7; }
-    .score-team-t  { background: rgba(124,58,26,0.7); color: #ff8a65; }
+    .score-team-t { background: rgba(124,58,26,0.7); color: #ff8a65; }
     .score-team-box .team-label { font-size: 0.5em; letter-spacing: 2px; display: block; }
-
-    #scoreboard table {
-      width: 600px;
-      border-collapse: collapse;
-      color: #ddd;
-    }
+    #scoreboard table { width: 600px; border-collapse: collapse; color: #ddd; }
     #scoreboard th {
-      padding: 8px 12px;
-      text-align: left;
-      font-size: 11px;
-      letter-spacing: 1px;
-      color: #888;
+      padding: 8px 12px; text-align: left;
+      font-size: 11px; letter-spacing: 1px; color: #888;
       border-bottom: 1px solid rgba(255,255,255,0.1);
     }
-    #scoreboard td {
-      padding: 8px 12px;
-      font-size: 14px;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
+    #scoreboard td { padding: 8px 12px; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.05); }
 
     /* Death screen */
     #deathScreen {
-      position: fixed;
-      inset: 0;
+      position: fixed; inset: 0;
       background: rgba(150,0,0,0.25);
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 55;
-      pointer-events: none;
+      display: none; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 55; pointer-events: none;
     }
     #deathScreen h2 {
-      color: #e74c3c;
-      font-size: 3em;
-      font-weight: 900;
-      letter-spacing: 4px;
-      text-shadow: 0 0 20px rgba(231,76,60,0.8);
+      color: #e74c3c; font-size: 3em; font-weight: 900;
+      letter-spacing: 4px; text-shadow: 0 0 20px rgba(231,76,60,0.8);
     }
-    #deathScreen p {
-      color: #fff;
-      font-size: 1.2em;
-      margin-top: 10px;
-    }
-    #respawnTimer {
-      color: #ff8a65;
-      font-size: 2em;
-      font-weight: bold;
-    }
+    #deathScreen p { color: #fff; font-size: 1.2em; margin-top: 10px; }
+    #respawnTimer { color: #ff8a65; font-size: 2em; font-weight: bold; }
 
-    /* Damage flash */
-    #damageFlash {
-      position: fixed;
-      inset: 0;
-      background: rgba(255,0,0,0.0);
-      pointer-events: none;
-      z-index: 54;
-      transition: opacity 0.3s;
-    }
-
-    /* Vignette */
-    #vignette {
-      position: fixed;
-      inset: 0;
-      background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.5) 100%);
-      pointer-events: none;
-      z-index: 48;
-    }
+    /* Effects */
+    #damageFlash { position: fixed; inset: 0; background: rgba(255,0,0,0); pointer-events: none; z-index: 54; transition: opacity 0.3s; }
+    #vignette { position: fixed; inset: 0; background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.5) 100%); pointer-events: none; z-index: 48; }
   </style>
 </head>
 <body>
 
-<!-- Loading Screen -->
+<!-- Background canvas (animated particles) -->
+<canvas id="bgCanvas"></canvas>
+
+<!-- ===================== LOADING SCREEN ===================== -->
 <div id="loadingScreen">
-  <h2>FPS ARENA</h2>
-  <div class="loader"></div>
-  <p style="color:#666; margin-top:16px; font-size:0.85em">Loading assets...</p>
+  <div class="loader-logo">ONLINEPVP</div>
+  <div class="loader-bar"><div class="loader-fill"></div></div>
+  <p class="loader-text">LOADING...</p>
 </div>
 
-<!-- Overlay / Main Menu -->
-<div id="overlay" style="display:none">
-  <h1>FPS ARENA</h1>
-  <div class="subtitle">MULTIPLAYER · BROWSER · FPS</div>
-  <input type="text" id="nameInput" placeholder="Enter your name" maxlength="20" autocomplete="off">
-  <button id="playBtn">PLAY</button>
-  <div class="controls-hint">
-    <span>WASD</span> Move &nbsp;|&nbsp; <span>Mouse</span> Look &nbsp;|&nbsp; <span>LMB</span> Shoot<br>
-    <span>R</span> Reload &nbsp;|&nbsp; <span>1/2</span> Switch Weapon &nbsp;|&nbsp; <span>Space</span> Jump<br>
-    <span>Tab</span> Scoreboard &nbsp;|&nbsp; <span>Scroll</span> Switch Weapon
+<!-- ===================== USERNAME MODAL (first visit only) ===================== -->
+<div id="usernameModal">
+  <div class="modal-card">
+    <div class="modal-logo-icon">🎮</div>
+    <h2>Welcome, Soldier</h2>
+    <p>Choose a username to identify yourself on the battlefield. This will be saved for future visits.</p>
+    <input type="text" id="usernameInput" class="modal-input" placeholder="Enter username" maxlength="20" autocomplete="off">
+    <button class="btn-primary" id="saveUsernameBtn">CONFIRM &amp; ENTER</button>
   </div>
-  <div id="connectionStatus"></div>
 </div>
 
-<!-- Game Canvas -->
+<!-- ===================== HOME PAGE ===================== -->
+<div id="homePage">
+  <!-- Top Bar -->
+  <div class="topbar">
+    <span class="topbar-logo">ONLINEPVP</span>
+    <span class="topbar-badge">v1.0</span>
+    <div class="topbar-spacer"></div>
+    <div class="topbar-status">
+      <div class="status-dot" id="serverStatusDot"></div>
+      <span id="serverStatusText">Connecting...</span>
+    </div>
+    <button class="topbar-btn" id="settingsBtn">⚙ Settings</button>
+  </div>
+
+  <!-- Main 3-column layout -->
+  <div class="home-content">
+
+    <!-- LEFT PANEL: Profile + Stats -->
+    <div class="side-panel left">
+      <div class="panel-title">Player Profile</div>
+
+      <!-- Profile card -->
+      <div class="profile-card">
+        <div class="profile-avatar" id="profileAvatar">?</div>
+        <div class="profile-name" id="profileName">Unknown</div>
+        <div class="profile-sub">Browser FPS Player</div>
+        <button class="profile-edit-btn" id="editUsernameBtn">✏ Change Name</button>
+      </div>
+
+      <!-- Rank -->
+      <div class="rank-badge">
+        <div class="rank-icon" id="rankIcon">🔫</div>
+        <div class="rank-info">
+          <div class="rank-name" id="rankName">Recruit</div>
+          <div class="rank-desc" id="rankDesc">Keep fighting!</div>
+        </div>
+      </div>
+
+      <!-- Stats grid -->
+      <div class="panel-title">Statistics</div>
+      <div class="stats-grid">
+        <div class="stat-box">
+          <div class="stat-value red" id="statKills">0</div>
+          <div class="stat-label">Total Kills</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value blue" id="statDeaths">0</div>
+          <div class="stat-label">Total Deaths</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value green" id="statKD">0.00</div>
+          <div class="stat-label">K/D Ratio</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="statGames">0</div>
+          <div class="stat-label">Games</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value red" id="statStreak">0</div>
+          <div class="stat-label">Best Streak</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-value" id="statScore">0</div>
+          <div class="stat-label">Best Score</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER: Logo + Play Button -->
+    <div class="home-center">
+      <div class="game-logo">
+        <h1>ONLINE<span style="color:var(--accent)">PvP</span></h1>
+        <div class="logo-sub">Multiplayer · Browser · FPS</div>
+      </div>
+
+      <div class="play-section">
+        <button class="btn-play" id="playBtn">PLAY</button>
+        <div class="play-hint">Click PLAY to find a match instantly</div>
+      </div>
+
+      <!-- Game info cards -->
+      <div class="game-cards">
+        <div class="game-card">
+          <div class="card-icon">🗺</div>
+          <div class="card-label">Map</div>
+          <div class="card-value">FPS Arena</div>
+        </div>
+        <div class="game-card">
+          <div class="card-icon">⚔</div>
+          <div class="card-label">Mode</div>
+          <div class="card-value">Deathmatch</div>
+        </div>
+        <div class="game-card">
+          <div class="card-icon">👥</div>
+          <div class="card-label">Online</div>
+          <div class="card-value" id="playerCountDisplay">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: Controls + Tips -->
+    <div class="side-panel right">
+      <div class="panel-title">Controls</div>
+      <div class="controls-list">
+        <div class="control-row"><span class="key">WASD</span><span class="ctrl-desc">Move</span></div>
+        <div class="control-row"><span class="key">Mouse</span><span class="ctrl-desc">Look around</span></div>
+        <div class="control-row"><span class="key">LMB</span><span class="ctrl-desc">Shoot</span></div>
+        <div class="control-row"><span class="key">R</span><span class="ctrl-desc">Reload</span></div>
+        <div class="control-row"><span class="key">Space</span><span class="ctrl-desc">Jump</span></div>
+        <div class="control-row"><span class="key">1 / 2</span><span class="ctrl-desc">Switch weapon</span></div>
+        <div class="control-row"><span class="key">Scroll</span><span class="ctrl-desc">Cycle weapon</span></div>
+        <div class="control-row"><span class="key">Tab</span><span class="ctrl-desc">Scoreboard</span></div>
+        <div class="control-row"><span class="key">Esc</span><span class="ctrl-desc">Pause menu</span></div>
+      </div>
+
+      <div class="panel-title">Tips</div>
+      <div class="tip-item">
+        <div class="tip-title">🎯 Aim for the Head</div>
+        <div class="tip-text">Headshots deal 2.5× damage. Flick your crosshair to enemy heads for quick eliminations.</div>
+      </div>
+      <div class="tip-item">
+        <div class="tip-title">🔄 Reload Smart</div>
+        <div class="tip-text">Press R when behind cover. Running out of ammo mid-fight is a quick way to die.</div>
+      </div>
+      <div class="tip-item">
+        <div class="tip-title">📍 Use Cover</div>
+        <div class="tip-text">Peek from the sides of crates and walls. Staying in the open is dangerous.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom bar -->
+  <div class="bottombar">
+    <div class="bottom-item"><div class="bottom-dot"></div><span id="onlineCount">0 players online</span></div>
+    <div class="bottom-item">v1.0.0</div>
+    <div class="bottom-item" id="lastSavedTime">Auto-save: never</div>
+  </div>
+</div>
+
+<!-- ===================== CONNECTING SCREEN ===================== -->
+<div id="connectingScreen">
+  <div class="spin"></div>
+  <div class="conn-title">FINDING A MATCH</div>
+  <div class="conn-sub" id="connectingSubtext">Connecting to server...</div>
+</div>
+
+<!-- ===================== GAME CANVAS ===================== -->
 <div id="gameCanvas"></div>
 
-<!-- HUD -->
-<div id="vignette"></div>
-<div id="damageFlash"></div>
-<div id="crosshair"></div>
-<div id="crosshairDot"></div>
+<!-- ===================== PAUSE OVERLAY ===================== -->
+<div id="pauseOverlay">
+  <div class="pause-title">PAUSED</div>
+  <div class="pause-sub">Press Escape or click Resume to continue</div>
+  <div class="pause-btns">
+    <button class="pause-btn resume" id="resumeBtn">▶ RESUME</button>
+    <button class="pause-btn quit" id="quitBtn">✕ QUIT TO MENU</button>
+  </div>
+</div>
 
-<!-- Score Header -->
-<div id="scoreHeader">
+<!-- ===================== HUD ===================== -->
+<div id="vignette" class="hud"></div>
+<div id="damageFlash" class="hud"></div>
+<div id="crosshair" class="hud"></div>
+<div id="crosshairDot" class="hud"></div>
+
+<div id="scoreHeader" class="hud">
   <div class="score-box score-ct">CT <span id="ctScore">0</span></div>
   <div class="score-divider">VS</div>
   <div class="score-box score-t"><span id="tScore">0</span> T</div>
 </div>
 
-<!-- Team & Kills -->
-<div id="teamDisplay">
+<div id="teamDisplay" class="hud">
   <div id="teamName">-</div>
   <div id="killScore">Kills: 0</div>
 </div>
 
-<!-- Health Bar -->
-<div id="healthBar">
-  <div class="label">
-    <span>HEALTH</span>
-    <span id="healthText">100</span>
-  </div>
-  <div class="bar-bg">
-    <div id="healthFill"></div>
-  </div>
+<div id="healthBar" class="hud">
+  <div class="hud-label"><span>HEALTH</span><span id="healthText">100</span></div>
+  <div class="bar-bg"><div id="healthFill"></div></div>
 </div>
 
-<!-- Ammo Display -->
-<div id="ammoDisplay">
+<div id="ammoDisplay" class="hud">
   <div id="weaponName">AK-47</div>
   <div>
     <span id="ammoCount">30</span>
@@ -482,18 +708,13 @@
   </div>
 </div>
 
-<!-- Reload Indicator -->
-<div id="reloadIndicator">RELOADING...</div>
+<div id="reloadIndicator" class="hud">RELOADING...</div>
+<div id="killFeed" class="hud"></div>
 
-<!-- Kill Feed -->
-<div id="killFeed"></div>
-
-<!-- Minimap -->
-<div id="minimap">
+<div id="minimap" class="hud">
   <canvas id="minimapCanvas" width="120" height="120"></canvas>
 </div>
 
-<!-- Scoreboard (Tab) -->
 <div id="scoreboard">
   <h2>SCOREBOARD</h2>
   <div class="score-teams">
@@ -509,75 +730,443 @@
   <table>
     <thead>
       <tr>
-        <th>TEAM</th>
-        <th>PLAYER</th>
-        <th>KILLS</th>
-        <th>DEATHS</th>
-        <th>SCORE</th>
-        <th>STATUS</th>
+        <th>TEAM</th><th>PLAYER</th><th>KILLS</th><th>DEATHS</th><th>SCORE</th><th>STATUS</th>
       </tr>
     </thead>
     <tbody id="scoreboardBody"></tbody>
   </table>
 </div>
 
-<!-- Death Screen -->
 <div id="deathScreen">
   <h2>YOU DIED</h2>
   <p>Respawning in <span id="respawnTimer">3</span>s</p>
 </div>
 
-<!-- Three.js CDN -->
+<!-- ===================== SCRIPTS ===================== -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<!-- Socket.io CDN -->
 <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
-
-<!-- Game Scripts -->
 <script src="client/config.js"></script>
 <script src="client/socket.js"></script>
 <script src="client/ui.js"></script>
 <script src="client/game.js"></script>
 
 <script>
-  // Configuration
-  // When deployed: set this to your Railway backend URL
-  // When running locally: leave as null (will use same origin)
   const SERVER_URL = window.SOCKET_SERVER_URL || null;
 
-  let game = null;
+  // ===================== STATS MANAGEMENT =====================
+  const STATS_KEY = 'onlinepvp_stats';
 
-  // Start button
-  document.getElementById('playBtn').addEventListener('click', startGame);
-  document.getElementById('nameInput').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') startGame();
-  });
-
-  function startGame() {
-    const name = document.getElementById('nameInput').value.trim() || 'Player' + Math.floor(Math.random() * 999);
-    window.PLAYER_NAME = name;
-    document.getElementById('overlay').style.display = 'none';
-    document.getElementById('loadingScreen').style.display = 'flex';
-
-    if (!game) {
-      game = new FPSGame(SERVER_URL);
-      game.init();
-    }
-
-    // Request pointer lock after a brief delay
-    setTimeout(() => {
-      document.getElementById('gameCanvas').children[0]?.requestPointerLock();
-    }, 500);
+  function loadStats() {
+    try {
+      const saved = localStorage.getItem(STATS_KEY);
+      return saved ? JSON.parse(saved) : defaultStats();
+    } catch(e) { return defaultStats(); }
   }
 
-  // Update scoreboard score refs (the header ones)
-  // Note: ui.js handles #ctScore/#tScore, scoreboard has #sbCtScore/#sbTScore
-  const origUpdateScoreboard = UIManager.prototype.updateScoreboard;
+  function defaultStats() {
+    return {
+      playerName: '',
+      totalKills: 0,
+      totalDeaths: 0,
+      totalGames: 0,
+      bestKillStreak: 0,
+      highestScore: 0,
+      lastPlayed: null
+    };
+  }
+
+  function saveStats(stats) {
+    try {
+      localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+      updateLastSaved();
+      // Cloud sync (non-blocking)
+      if (stats.playerName) cloudSyncStats(stats);
+    } catch(e) {}
+  }
+
+  async function cloudSyncStats(stats) {
+    if (!SERVER_URL && window.location.hostname === 'localhost') return;
+    const base = SERVER_URL || '';
+    try {
+      await fetch(`${base}/api/stats/${encodeURIComponent(stats.playerName)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(stats)
+      });
+    } catch(e) { /* offline, local save is fine */ }
+  }
+
+  async function loadCloudStats(name) {
+    const base = SERVER_URL || '';
+    try {
+      const res = await fetch(`${base}/api/stats/${encodeURIComponent(name)}`);
+      if (res.ok) {
+        const cloud = await res.json();
+        if (cloud && cloud.playerName) return cloud;
+      }
+    } catch(e) {}
+    return null;
+  }
+
+  function mergeStats(local, cloud) {
+    if (!cloud) return local;
+    return {
+      playerName: local.playerName,
+      totalKills: Math.max(local.totalKills || 0, cloud.totalKills || 0),
+      totalDeaths: Math.max(local.totalDeaths || 0, cloud.totalDeaths || 0),
+      totalGames: Math.max(local.totalGames || 0, cloud.totalGames || 0),
+      bestKillStreak: Math.max(local.bestKillStreak || 0, cloud.bestKillStreak || 0),
+      highestScore: Math.max(local.highestScore || 0, cloud.highestScore || 0),
+      lastPlayed: local.lastPlayed
+    };
+  }
+
+  let stats = loadStats();
+
+  function updateLastSaved() {
+    const el = document.getElementById('lastSavedTime');
+    if (el) el.textContent = 'Auto-save: just now';
+  }
+
+  // ===================== RANK SYSTEM =====================
+  function getRank(kills) {
+    if (kills >= 500) return { icon: '🏆', name: 'Legend', desc: 'Top of the leaderboard' };
+    if (kills >= 200) return { icon: '💀', name: 'Veteran', desc: 'Battle hardened' };
+    if (kills >= 100) return { icon: '🎖', name: 'Sergeant', desc: 'Combat experienced' };
+    if (kills >= 50) return { icon: '⭐', name: 'Corporal', desc: 'Showing promise' };
+    if (kills >= 20) return { icon: '🔰', name: 'Private', desc: 'Learning the ropes' };
+    return { icon: '🔫', name: 'Recruit', desc: 'Keep fighting!' };
+  }
+
+  // ===================== UI HELPERS =====================
+  function getAvatarColor(name) {
+    const colors = ['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6','#e91e63'];
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return colors[Math.abs(hash) % colors.length];
+  }
+
+  function updateProfileUI() {
+    const name = stats.playerName || 'Unknown';
+    const kills = stats.totalKills || 0;
+    const deaths = stats.totalDeaths || 0;
+    const kd = deaths > 0 ? (kills / deaths).toFixed(2) : kills.toFixed(2);
+    const rank = getRank(kills);
+
+    document.getElementById('profileName').textContent = name;
+    document.getElementById('statKills').textContent = kills;
+    document.getElementById('statDeaths').textContent = deaths;
+    document.getElementById('statKD').textContent = kd;
+    document.getElementById('statGames').textContent = stats.totalGames || 0;
+    document.getElementById('statStreak').textContent = stats.bestKillStreak || 0;
+    document.getElementById('statScore').textContent = stats.highestScore || 0;
+    document.getElementById('rankIcon').textContent = rank.icon;
+    document.getElementById('rankName').textContent = rank.name;
+    document.getElementById('rankDesc').textContent = rank.desc;
+
+    const avatar = document.getElementById('profileAvatar');
+    avatar.textContent = name.charAt(0).toUpperCase() || '?';
+    avatar.style.background = getAvatarColor(name);
+  }
+
+  // ===================== SCREEN MANAGEMENT =====================
+  let gameInstance = null;
+  let inGame = false;
+  let sessionKills = 0;
+  let sessionDeaths = 0;
+  let sessionScore = 0;
+  let killStreak = 0;
+
+  function showLoadingScreen() {
+    document.getElementById('loadingScreen').style.display = 'flex';
+  }
+
+  function hideLoadingScreen() {
+    document.getElementById('loadingScreen').style.display = 'none';
+  }
+
+  function showHomePage() {
+    document.getElementById('homePage').classList.add('show');
+    document.getElementById('connectingScreen').classList.remove('show');
+    document.getElementById('pauseOverlay').classList.remove('show');
+    setHUDVisible(false);
+  }
+
+  function hideHomePage() {
+    document.getElementById('homePage').classList.remove('show');
+  }
+
+  function showConnectingScreen(msg) {
+    document.getElementById('connectingScreen').classList.add('show');
+    document.getElementById('connectingSubtext').textContent = msg || 'Connecting to server...';
+  }
+
+  function hideConnectingScreen() {
+    document.getElementById('connectingScreen').classList.remove('show');
+  }
+
+  function showGame() {
+    document.getElementById('gameCanvas').classList.add('active');
+    document.getElementById('pauseOverlay').classList.remove('show');
+    setHUDVisible(true);
+  }
+
+  function showPause() {
+    document.getElementById('pauseOverlay').classList.add('show');
+    setHUDVisible(false);
+  }
+
+  function hidePause() {
+    document.getElementById('pauseOverlay').classList.remove('show');
+    setHUDVisible(true);
+  }
+
+  function setHUDVisible(visible) {
+    document.querySelectorAll('.hud').forEach(el => {
+      el.classList.toggle('active', visible);
+    });
+  }
+
+  // ===================== PLAYER COUNT =====================
+  async function fetchPlayerCount() {
+    const base = SERVER_URL || '';
+    try {
+      const res = await fetch(`${base}/api/playercount`);
+      if (res.ok) {
+        const data = await res.json();
+        const count = data.count || 0;
+        document.getElementById('playerCountDisplay').textContent = count;
+        document.getElementById('onlineCount').textContent = `${count} player${count !== 1 ? 's' : ''} online`;
+        document.getElementById('serverStatusDot').className = 'status-dot';
+        document.getElementById('serverStatusText').textContent = 'Server Online';
+      }
+    } catch(e) {
+      document.getElementById('serverStatusDot').className = 'status-dot offline';
+      document.getElementById('serverStatusText').textContent = 'Server Offline';
+      document.getElementById('playerCountDisplay').textContent = '--';
+    }
+  }
+
+  // ===================== BACKGROUND ANIMATION =====================
+  function initBgAnimation() {
+    const canvas = document.getElementById('bgCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+
+    const particles = [];
+    for (let i = 0; i < 60; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        size: Math.random() * 1.5 + 0.5,
+        opacity: Math.random() * 0.6 + 0.1
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const p of particles) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(231,76,60,${p.opacity})`;
+        ctx.fill();
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0) p.x = canvas.width;
+        if (p.x > canvas.width) p.x = 0;
+        if (p.y < 0) p.y = canvas.height;
+        if (p.y > canvas.height) p.y = 0;
+      }
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < 120) {
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(231,76,60,${0.08 * (1 - dist/120)})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+      requestAnimationFrame(draw);
+    }
+    draw();
+  }
+
+  // ===================== GAME INIT =====================
+  function startGame() {
+    if (gameInstance) {
+      // Already initialized, just reconnect pointer lock
+      requestPointerLock();
+      return;
+    }
+
+    showConnectingScreen('Connecting to server...');
+    hideHomePage();
+    sessionKills = 0; sessionDeaths = 0; sessionScore = 0; killStreak = 0;
+
+    gameInstance = new FPSGame(SERVER_URL);
+
+    // Callback: called when server confirms join
+    gameInstance.onJoined = function(data) {
+      hideConnectingScreen();
+      showGame();
+      stats.totalGames = (stats.totalGames || 0) + 1;
+      stats.lastPlayed = new Date().toISOString();
+      saveStats(stats);
+      updateProfileUI();
+      setTimeout(() => requestPointerLock(), 300);
+    };
+
+    // Callback: pointer lock state changed
+    gameInstance.onPointerLockChange = function(locked) {
+      if (inGame) {
+        if (locked) hidePause();
+        else showPause();
+      }
+    };
+
+    // Callback: player killed (track stats)
+    gameInstance.onKill = function() {
+      sessionKills++;
+      killStreak++;
+      sessionScore += 100;
+      stats.totalKills = (stats.totalKills || 0) + 1;
+      if (killStreak > (stats.bestKillStreak || 0)) stats.bestKillStreak = killStreak;
+      if (sessionScore > (stats.highestScore || 0)) stats.highestScore = sessionScore;
+      saveStats(stats);
+    };
+
+    // Callback: player died
+    gameInstance.onDeath = function() {
+      sessionDeaths++;
+      killStreak = 0;
+      stats.totalDeaths = (stats.totalDeaths || 0) + 1;
+      saveStats(stats);
+    };
+
+    // Callback: connection error fallback
+    gameInstance.onConnectionError = function() {
+      hideConnectingScreen();
+      showGame(); // Play offline with placeholder
+    };
+
+    gameInstance.init();
+    inGame = true;
+  }
+
+  function requestPointerLock() {
+    const canvas = document.getElementById('gameCanvas').children[0];
+    if (canvas) canvas.requestPointerLock();
+  }
+
+  function quitToMenu() {
+    inGame = false;
+    // Disconnect socket if needed
+    if (gameInstance && gameInstance.socket && gameInstance.socket.socket) {
+      gameInstance.socket.socket.disconnect();
+    }
+    gameInstance = null;
+    document.getElementById('gameCanvas').classList.remove('active');
+    document.getElementById('gameCanvas').innerHTML = '';
+    hidePause();
+    updateProfileUI();
+    showHomePage();
+    fetchPlayerCount();
+  }
+
+  // ===================== EVENT LISTENERS =====================
+
+  // Username modal
+  document.getElementById('saveUsernameBtn').addEventListener('click', confirmUsername);
+  document.getElementById('usernameInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') confirmUsername();
+  });
+
+  function confirmUsername() {
+    const input = document.getElementById('usernameInput').value.trim();
+    const name = input || 'Player' + Math.floor(Math.random() * 9999);
+    stats.playerName = name;
+    saveStats(stats);
+    window.PLAYER_NAME = name;
+    document.getElementById('usernameModal').classList.remove('show');
+    updateProfileUI();
+    showHomePage();
+  }
+
+  // Play button
+  document.getElementById('playBtn').addEventListener('click', () => {
+    window.PLAYER_NAME = stats.playerName;
+    startGame();
+  });
+
+  // Edit username
+  document.getElementById('editUsernameBtn').addEventListener('click', () => {
+    document.getElementById('usernameInput').value = stats.playerName || '';
+    hideHomePage();
+    document.getElementById('usernameModal').classList.add('show');
+  });
+
+  // Pause: Resume
+  document.getElementById('resumeBtn').addEventListener('click', () => {
+    requestPointerLock();
+  });
+
+  // Pause: Quit
+  document.getElementById('quitBtn').addEventListener('click', quitToMenu);
+
+  // Scoreboard patch
+  const _origUpdateScoreboard = UIManager.prototype.updateScoreboard;
   UIManager.prototype.updateScoreboard = function(players, scores) {
-    origUpdateScoreboard.call(this, players, scores);
+    _origUpdateScoreboard.call(this, players, scores);
     const sbCt = document.getElementById('sbCtScore');
     const sbT = document.getElementById('sbTScore');
     if (sbCt) sbCt.textContent = scores.ct || 0;
     if (sbT) sbT.textContent = scores.terrorist || 0;
+  };
+
+  // ===================== STARTUP =====================
+  window.onload = function() {
+    initBgAnimation();
+    hideLoadingScreen();
+
+    // Load saved stats
+    stats = loadStats();
+
+    if (!stats.playerName) {
+      // First visit: show username modal
+      document.getElementById('usernameModal').classList.add('show');
+    } else {
+      // Returning player: go straight to home page
+      window.PLAYER_NAME = stats.playerName;
+      updateProfileUI();
+      showHomePage();
+    }
+
+    // Fetch server status
+    fetchPlayerCount();
+    setInterval(fetchPlayerCount, 10000);
+
+    // Try to load cloud stats for returning player
+    if (stats.playerName) {
+      loadCloudStats(stats.playerName).then(cloudData => {
+        if (cloudData) {
+          stats = mergeStats(stats, cloudData);
+          saveStats(stats);
+          updateProfileUI();
+        }
+      });
+    }
   };
 </script>
 </body>

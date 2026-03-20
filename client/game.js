@@ -9,6 +9,13 @@ class FPSGame {
     this.socket = new GameSocket();
     this.ui = new UIManager();
 
+    // Callbacks (set by caller)
+    this.onJoined = null;
+    this.onPointerLockChange = null;
+    this.onKill = null;
+    this.onDeath = null;
+    this.onConnectionError = null;
+
     // Player state
     this.localId = null;
     this.localTeam = null;
@@ -36,6 +43,25 @@ class FPSGame {
     // Map constants
     this.MAP_SIZE = 50;
 
+    // Wall collision data — must match server/gameloop.js WALLS array
+    this.CLIENT_WALLS = [
+      { x: 0, z: 0, w: 6, d: 6 },
+      { x: -15, z: -20, w: 8, d: 2 },
+      { x: 15, z: -20, w: 8, d: 2 },
+      { x: -8, z: -30, w: 2, d: 8 },
+      { x: 8, z: -30, w: 2, d: 8 },
+      { x: -15, z: 20, w: 8, d: 2 },
+      { x: 15, z: 20, w: 8, d: 2 },
+      { x: -8, z: 30, w: 2, d: 8 },
+      { x: 8, z: 30, w: 2, d: 8 },
+      { x: -10, z: 0, w: 3, d: 3 },
+      { x: 10, z: 0, w: 3, d: 3 },
+      { x: 0, z: -12, w: 3, d: 3 },
+      { x: 0, z: 12, w: 3, d: 3 },
+      { x: -25, z: 0, w: 2, d: 20 },
+      { x: 25, z: 0, w: 2, d: 20 },
+    ];
+
     // Particle effects
     this.particles = [];
 
@@ -49,6 +75,19 @@ class FPSGame {
     // Scores
     this.scores = { ct: 0, terrorist: 0 };
     this.allPlayers = [];
+  }
+
+  // Client-side wall collision (mirrors server collidesWithWall)
+  _collidesWithWall(x, z, radius) {
+    if (x - radius < -50 || x + radius > 50) return true;
+    if (z - radius < -50 || z + radius > 50) return true;
+    for (const wall of this.CLIENT_WALLS) {
+      const halfW = wall.w / 2 + radius;
+      const halfD = wall.d / 2 + radius;
+      if (x > wall.x - halfW && x < wall.x + halfW &&
+          z > wall.z - halfD && z < wall.z + halfD) return true;
+    }
+    return false;
   }
 
   init() {
@@ -427,7 +466,7 @@ class FPSGame {
 
     document.addEventListener('pointerlockchange', () => {
       this.pointerLocked = document.pointerLockElement === document.getElementById('gameCanvas').children[0];
-      document.getElementById('overlay').style.display = this.pointerLocked ? 'none' : 'flex';
+      if (this.onPointerLockChange) this.onPointerLockChange(this.pointerLocked);
     });
 
     document.addEventListener('wheel', (e) => {
@@ -709,8 +748,7 @@ class FPSGame {
       this.ui.updateAmmo(data.ammo, data.maxAmmo);
       this.ui.updateWeapon('rifle');
 
-      document.getElementById('loadingScreen').style.display = 'none';
-      document.getElementById('overlay').style.display = 'flex';
+      if (this.onJoined) this.onJoined(data);
     });
 
     this.socket.on('gameState', (data) => {
@@ -751,6 +789,11 @@ class FPSGame {
         this.alive = false;
         this.ui.showDeathScreen(3000);
         this.ui.hideReloading();
+        if (this.onDeath) this.onDeath();
+      }
+
+      if (data.killerId === this.localId) {
+        if (this.onKill) this.onKill();
       }
     });
 
@@ -811,7 +854,7 @@ class FPSGame {
     });
 
     this.socket.on('connect_error', () => {
-      document.getElementById('connectionStatus').textContent = 'Connection failed. Playing offline.';
+      if (this.onConnectionError) this.onConnectionError();
     });
   }
 
@@ -876,11 +919,17 @@ class FPSGame {
 
       const len = Math.sqrt(dx * dx + dz * dz);
       if (len > 0) {
-        this.camera.position.x += (dx / len) * speed;
-        this.camera.position.z += (dz / len) * speed;
-        // Bounds
-        this.camera.position.x = Math.max(-49, Math.min(49, this.camera.position.x));
-        this.camera.position.z = Math.max(-49, Math.min(49, this.camera.position.z));
+        const moveX = (dx / len) * speed;
+        const moveZ = (dz / len) * speed;
+        const PLAYER_R = 0.35;
+        const newX = this.camera.position.x + moveX;
+        const newZ = this.camera.position.z + moveZ;
+        if (!this._collidesWithWall(newX, this.camera.position.z, PLAYER_R)) {
+          this.camera.position.x = newX;
+        }
+        if (!this._collidesWithWall(this.camera.position.x, newZ, PLAYER_R)) {
+          this.camera.position.z = newZ;
+        }
       }
 
       // Bobbing
