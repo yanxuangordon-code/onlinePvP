@@ -166,12 +166,12 @@ class FPSGame {
   }
 
   _buildGunModel() {
-    const dark   = new THREE.MeshLambertMaterial({ color: 0x222222 });
-    const metal  = new THREE.MeshLambertMaterial({ color: 0x333333 });
-    const metal2 = new THREE.MeshLambertMaterial({ color: 0x444444 });
-    const wood   = new THREE.MeshLambertMaterial({ color: 0x5d3a1a });
-    const blk    = new THREE.MeshLambertMaterial({ color: 0x111111 });
-    const tan    = new THREE.MeshLambertMaterial({ color: 0x8b7355 });
+    const dark   = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5, metalness: 0.7 });
+    const metal  = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.4, metalness: 0.8 });
+    const metal2 = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.45, metalness: 0.75 });
+    const wood   = new THREE.MeshStandardMaterial({ color: 0x5d3a1a, roughness: 0.9, metalness: 0.0 });
+    const blk    = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3, metalness: 0.9 });
+    const tan    = new THREE.MeshStandardMaterial({ color: 0x8b7355, roughness: 0.85, metalness: 0.0 });
 
     const box = (w, h, d, mat) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || metal);
     const addParts = (group, parts) => { parts.forEach(([m, px, py, pz]) => { m.position.set(px, py, pz); group.add(m); }); };
@@ -352,8 +352,8 @@ class FPSGame {
     const tTex      = makeTexture('#4a1008', '#6a1810', 6, 'grid');
     const boxTex    = makeTexture('#9a7828', '#7a5818', 3, 'planks');
 
-    function makeMat(tex, color) {
-      return new THREE.MeshLambertMaterial({ map: tex, color: color || 0xffffff });
+    function makeMat(tex, color, roughness, metalness) {
+      return new THREE.MeshStandardMaterial({ map: tex, color: color || 0xffffff, roughness: roughness !== undefined ? roughness : 0.85, metalness: metalness !== undefined ? metalness : 0.0 });
     }
 
     // Floor
@@ -401,21 +401,21 @@ class FPSGame {
     self.scene.add(tSpawn);
 
     // Spawn walls (CT)
-    const spawnWallMat = new THREE.MeshLambertMaterial({ color: 0x2244aa });
+    const spawnWallMat = new THREE.MeshStandardMaterial({ color: 0x2244aa, roughness: 0.7, metalness: 0.1 });
     const spawnWall_CT = new THREE.Mesh(new THREE.BoxGeometry(20, 5, 0.5), spawnWallMat);
     spawnWall_CT.position.set(0, 2.5, -45.5);
     self.scene.add(spawnWall_CT);
 
     // Spawn walls (T)
-    const spawnWallMatT = new THREE.MeshLambertMaterial({ color: 0xaa4422 });
+    const spawnWallMatT = new THREE.MeshStandardMaterial({ color: 0xaa4422, roughness: 0.7, metalness: 0.1 });
     const spawnWall_T = new THREE.Mesh(new THREE.BoxGeometry(20, 5, 0.5), spawnWallMatT);
     spawnWall_T.position.set(0, 2.5, 45.5);
     self.scene.add(spawnWall_T);
 
     // --- CS-style map structures ---
     const boxMat = makeMat(boxTex);
-    const concreteMatDark = new THREE.MeshLambertMaterial({ color: 0x666666 });
-    const concreteMat = new THREE.MeshLambertMaterial({ color: 0x888888 });
+    const concreteMatDark = new THREE.MeshStandardMaterial({ color: 0x666666, roughness: 0.9, metalness: 0.0 });
+    const concreteMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.85, metalness: 0.0 });
 
     function addBox(x, y, z, w, h, d, mat) {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || boxMat);
@@ -480,7 +480,7 @@ class FPSGame {
     addBox(18, 1.8, 10, 1.2, 1, 1.2);
 
     // Objective markers (A/B sites visual)
-    const siteMat = new THREE.MeshLambertMaterial({ color: 0xffff00, emissive: 0x333300 });
+    const siteMat = new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0x333300, roughness: 0.7, metalness: 0.0 });
     const siteA = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), siteMat);
     siteA.rotation.x = -Math.PI / 2;
     siteA.position.set(-20, 0.02, 0);
@@ -555,7 +555,11 @@ class FPSGame {
 
     document.addEventListener('mousedown', (e) => {
       if (!this.pointerLocked) {
-        document.getElementById('gameCanvas').requestPointerLock();
+        const canvas = document.getElementById('gameCanvas');
+        // Only lock pointer when actually in-game (canvas visible), not on home page
+        if (!canvas || !canvas.classList.contains('active')) return;
+        const renderer = canvas.children[0];
+        if (renderer) renderer.requestPointerLock();
         return;
       }
       if (e.button === 0 && this.alive) {
@@ -727,8 +731,8 @@ class FPSGame {
     const group = new THREE.Group();
 
     // Body
-    const bodyMat = new THREE.MeshLambertMaterial({
-      color: team === 'ct' ? 0x1a3a7c : 0x7c3a1a
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: team === 'ct' ? 0x1a3a7c : 0x7c3a1a, roughness: 0.8, metalness: 0.1
     });
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.0, 0.3), bodyMat);
     body.position.y = 0.5;
@@ -736,15 +740,15 @@ class FPSGame {
     group.add(body);
 
     // Head
-    const headMat = new THREE.MeshLambertMaterial({ color: 0xffcc99 });
+    const headMat = new THREE.MeshStandardMaterial({ color: 0xffcc99, roughness: 0.9, metalness: 0.0 });
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), headMat);
     head.position.y = 1.3;
     head.castShadow = true;
     group.add(head);
 
     // Helmet
-    const helmetMat = new THREE.MeshLambertMaterial({
-      color: team === 'ct' ? 0x2255aa : 0x553311
+    const helmetMat = new THREE.MeshStandardMaterial({
+      color: team === 'ct' ? 0x2255aa : 0x553311, roughness: 0.5, metalness: 0.4
     });
     const helmet = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.25, 0.45), helmetMat);
     helmet.position.y = 1.55;
@@ -763,13 +767,13 @@ class FPSGame {
     group.add(rArm);
 
     // Gun (carried by remote player)
-    const gunMat = new THREE.MeshLambertMaterial({ color: 0x222222 });
+    const gunMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.4, metalness: 0.8 });
     const gun = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.4), gunMat);
     gun.position.set(0.4, 0.8, -0.3);
     group.add(gun);
 
     // Legs
-    const legMat = new THREE.MeshLambertMaterial({ color: team === 'ct' ? 0x0a1a3c : 0x2a1000 });
+    const legMat = new THREE.MeshStandardMaterial({ color: team === 'ct' ? 0x0a1a3c : 0x2a1000, roughness: 0.8, metalness: 0.05 });
     const lLeg = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.7, 0.25), legMat);
     lLeg.position.set(-0.17, -0.35, 0);
     lLeg.castShadow = true;
@@ -883,11 +887,16 @@ class FPSGame {
       this.ui.updateScoreboard(data.players, data.scores);
       this.ui.updateMinimap(data.players, this.localId, this.MAP_SIZE);
 
-      // Sync kills from server
+      // Sync local player state from server (kills + Y for jump)
       const me = data.players.find(p => p.id === this.localId);
       if (me) {
         this.kills = me.kills;
         this.ui.updateKillScore(me.kills);
+        // Sync Y position so jump is visible
+        const serverCamY = me.y + 0.6;
+        if (Math.abs(serverCamY - this.camera.position.y) > 0.02) {
+          this.camera.position.y = serverCamY;
+        }
       }
 
       // CTF flag HUD
@@ -983,9 +992,10 @@ class FPSGame {
     this.socket.on('reloadEnd', (data) => {
       this.reloading = false;
       this.ui.hideReloading();
-      const key = this.weapon === 'rifle' ? 'rifle' : 'pistol';
-      this.ammo[key].ammo = data.ammo;
-      this.ammo[key].maxAmmo = data.maxAmmo;
+      if (this.ammo[this.weapon]) {
+        this.ammo[this.weapon].ammo = data.ammo;
+        this.ammo[this.weapon].maxAmmo = data.maxAmmo;
+      }
       this.ui.updateAmmo(data.ammo, data.maxAmmo);
     });
 
