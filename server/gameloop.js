@@ -10,27 +10,18 @@ const PLAYER_RADIUS = 0.4;
 const RESPAWN_TIME = 3000; // ms
 
 const WEAPONS = {
-  rifle: {
-    damage: 25,
-    fireRate: 100, // ms between shots
-    ammo: 30,
-    maxAmmo: 90,
-    range: 200,
-    spread: 0.02,
-    reloadTime: 2000,
-    automatic: true
-  },
-  pistol: {
-    damage: 35,
-    fireRate: 400,
-    ammo: 12,
-    maxAmmo: 36,
-    range: 150,
-    spread: 0.04,
-    reloadTime: 1500,
-    automatic: false
-  }
+  ak47:    { damage: 25,  fireRate: 100,  ammo: 30,  maxAmmo: 90,  range: 200, spread: 0.02,  reloadTime: 2000, automatic: true,  pellets: 1 },
+  m4a1:    { damage: 22,  fireRate: 80,   ammo: 30,  maxAmmo: 90,  range: 200, spread: 0.015, reloadTime: 1800, automatic: true,  pellets: 1 },
+  awp:     { damage: 100, fireRate: 1500, ammo: 5,   maxAmmo: 20,  range: 400, spread: 0.001, reloadTime: 3000, automatic: false, pellets: 1 },
+  shotgun: { damage: 15,  fireRate: 900,  ammo: 8,   maxAmmo: 32,  range: 80,  spread: 0.15,  reloadTime: 2500, automatic: false, pellets: 6 },
+  smg:     { damage: 16,  fireRate: 55,   ammo: 25,  maxAmmo: 100, range: 120, spread: 0.05,  reloadTime: 1500, automatic: true,  pellets: 1 },
+  pistol:  { damage: 35,  fireRate: 400,  ammo: 12,  maxAmmo: 36,  range: 150, spread: 0.04,  reloadTime: 1500, automatic: false, pellets: 1 },
+  deagle:  { damage: 55,  fireRate: 500,  ammo: 7,   maxAmmo: 28,  range: 180, spread: 0.03,  reloadTime: 1800, automatic: false, pellets: 1 },
+  // legacy alias
+  rifle:   { damage: 25,  fireRate: 100,  ammo: 30,  maxAmmo: 90,  range: 200, spread: 0.02,  reloadTime: 2000, automatic: true,  pellets: 1 },
 };
+
+const SECONDARY_WEAPONS = new Set(['pistol', 'deagle']);
 
 // Map walls/obstacles for server-side collision
 const MAP_BOUNDS = { minX: -50, maxX: 50, minZ: -50, maxZ: 50 };
@@ -129,7 +120,9 @@ function getSpawnPoint(team, usedSpawns) {
   return { x: sp.x, y: PLAYER_HEIGHT / 2, z: sp.z };
 }
 
-function createPlayer(id, name, team) {
+function createPlayer(id, name, team, primaryWeapon, secondaryWeapon) {
+  const pw = (primaryWeapon && WEAPONS[primaryWeapon]) ? primaryWeapon : 'ak47';
+  const sw = (secondaryWeapon && WEAPONS[secondaryWeapon]) ? secondaryWeapon : 'pistol';
   const usedSpawns = new Set();
   const pos = getSpawnPoint(team, usedSpawns);
   return {
@@ -144,9 +137,11 @@ function createPlayer(id, name, team) {
     pitch: 0,
     health: 100,
     alive: true,
-    weapon: 'rifle',
-    ammo: { ...WEAPONS.rifle },
-    pistolAmmo: { ...WEAPONS.pistol },
+    weapon: pw,
+    primaryWeapon: pw,
+    secondaryWeapon: sw,
+    ammo: { ...WEAPONS[pw] },
+    pistolAmmo: { ...WEAPONS[sw] },
     lastShot: 0,
     reloading: false,
     reloadEnd: 0,
@@ -202,8 +197,8 @@ class GameLoop {
     if (this.interval) clearInterval(this.interval);
   }
 
-  addPlayer(id, name, team) {
-    const player = createPlayer(id, name, team);
+  addPlayer(id, name, team, primaryWeapon, secondaryWeapon) {
+    const player = createPlayer(id, name, team, primaryWeapon, secondaryWeapon);
     this.players.set(id, player);
     return player;
   }
@@ -247,8 +242,8 @@ class GameLoop {
     if (!player || !player.alive) return;
 
     const now = Date.now();
-    const weapon = WEAPONS[player.weapon];
-    const ammoKey = player.weapon === 'rifle' ? 'ammo' : 'pistolAmmo';
+    const weapon = WEAPONS[player.weapon] || WEAPONS.ak47;
+    const ammoKey = SECONDARY_WEAPONS.has(player.weapon) ? 'pistolAmmo' : 'ammo';
     const ammoObj = player[ammoKey];
 
     if (player.reloading) return;
@@ -261,8 +256,11 @@ class GameLoop {
     player.lastShot = now;
     ammoObj.ammo--;
 
-    // Raycast against all players
     const origin = { x: player.x, y: player.y + 0.6, z: player.z };
+    const pellets = weapon.pellets || 1;
+    let anyHit = null, anyHitPoint = null;
+
+    for (let p = 0; p < pellets; p++) {
     const dir = {
       x: Math.sin(player.yaw) * Math.cos(player.pitch) + (Math.random() - 0.5) * weapon.spread,
       y: -Math.sin(player.pitch) + (Math.random() - 0.5) * weapon.spread,
@@ -276,11 +274,9 @@ class GameLoop {
 
     for (const [otherId, other] of this.players) {
       if (otherId === id || !other.alive) continue;
-      // FFA: everyone is an enemy. TDM/CTF/PvC: opposite team only
       const isEnemy = this.mode === 'ffa' ? true : other.team !== player.team;
       if (!isEnemy) continue;
 
-      // Simple sphere intersection
       const dx = other.x - origin.x;
       const dy = (other.y + 0.3) - origin.y;
       const dz = other.z - origin.z;
@@ -309,8 +305,9 @@ class GameLoop {
       const headshot = shootData && shootData.headshot;
       const dmg = headshot ? weapon.damage * 2.5 : weapon.damage;
       hit.health -= dmg;
+      if (!anyHit) { anyHit = hit; anyHitPoint = hitPoint; }
 
-      if (!hit.isBot) this._send(hit.id, 'damaged', { health: hit.health, attackerId: id });
+      if (!hit.isBot) this._send(hit.id, 'damaged', { health: Math.max(0, hit.health), attackerId: id });
 
       if (hit.health <= 0) {
         this.killPlayer(hit, player);
@@ -320,6 +317,7 @@ class GameLoop {
     } else {
       this._broadcast('bulletImpact', { shooterId: id, hitPoint, dir });
     }
+    } // end pellets loop
 
     // Notify shooter of updated ammo
     if (!player.isBot) {
@@ -335,8 +333,8 @@ class GameLoop {
   handleReload(id) {
     const player = this.players.get(id);
     if (!player || player.reloading) return;
-    const weapon = WEAPONS[player.weapon];
-    const ammoKey = player.weapon === 'rifle' ? 'ammo' : 'pistolAmmo';
+    const weapon = WEAPONS[player.weapon] || WEAPONS.ak47;
+    const ammoKey = SECONDARY_WEAPONS.has(player.weapon) ? 'pistolAmmo' : 'ammo';
     const ammoObj = player[ammoKey];
 
     const needed = weapon.ammo - ammoObj.ammo;
@@ -416,10 +414,10 @@ class GameLoop {
       victim.vy = 0;
       victim.health = 100;
       victim.alive = true;
-      victim.ammo = { ...WEAPONS.rifle };
-      victim.pistolAmmo = { ...WEAPONS.pistol };
+      victim.ammo = { ...WEAPONS[victim.primaryWeapon || 'ak47'] };
+      victim.pistolAmmo = { ...WEAPONS[victim.secondaryWeapon || 'pistol'] };
       victim.reloading = false;
-      victim.weapon = 'rifle';
+      victim.weapon = victim.primaryWeapon || 'ak47';
       if (!victim.isBot) this._send(victim.id, 'respawn', { x: victim.x, y: victim.y, z: victim.z });
     }, RESPAWN_TIME);
   }
@@ -632,4 +630,4 @@ class GameLoop {
   }
 }
 
-module.exports = { GameLoop, WEAPONS, SPAWN_POINTS, WALLS, MAP_BOUNDS };
+module.exports = { GameLoop, WEAPONS, SECONDARY_WEAPONS, SPAWN_POINTS, WALLS, MAP_BOUNDS };

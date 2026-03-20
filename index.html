@@ -671,6 +671,111 @@
     #damageFlash { position: fixed; inset: 0; background: rgba(255,0,0,0); pointer-events: none; z-index: 54; transition: opacity 0.3s; }
     #vignette { position: fixed; inset: 0; background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.5) 100%); pointer-events: none; z-index: 48; }
 
+    /* ===================== PROFILE WIDGET (top-right) ===================== */
+    .profile-widget {
+      position: relative; display: flex; align-items: center; gap: 8px; cursor: pointer;
+    }
+    .topbar-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.9em; font-weight: 900; color: #fff;
+      border: 2px solid rgba(231,76,60,0.5);
+      flex-shrink: 0; user-select: none;
+    }
+    .topbar-coins {
+      font-size: 0.78em; color: #f1c40f; font-weight: bold;
+      letter-spacing: 0.5px; white-space: nowrap;
+    }
+    .profile-dropdown {
+      position: absolute; top: calc(100% + 10px); right: 0;
+      width: 280px; background: var(--panel);
+      border: 1px solid var(--border); border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      padding: 16px; z-index: 200;
+      display: none; flex-direction: column; gap: 12px;
+      opacity: 0; transform: translateY(-6px);
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .profile-widget:hover .profile-dropdown,
+    .profile-widget.open .profile-dropdown { display: flex; opacity: 1; transform: translateY(0); }
+    .pd-header { display: flex; align-items: center; gap: 10px; }
+    .pd-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3em; font-weight: 900; color: #fff; flex-shrink: 0;
+      border: 2px solid rgba(231,76,60,0.5);
+    }
+    .pd-info { flex: 1; }
+    .pd-name { font-size: 0.95em; font-weight: bold; }
+    .pd-rank { font-size: 0.7em; color: var(--muted); margin-top: 1px; }
+    .pd-coins { font-size: 0.78em; color: #f1c40f; font-weight: bold; margin-top: 2px; }
+    .pd-divider { height: 1px; background: var(--border); }
+    .pd-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+    .pd-stat { text-align: center; background: var(--panel2); border-radius: 6px; padding: 7px 4px; }
+    .pd-stat-val { font-size: 1em; font-weight: 900; }
+    .pd-stat-lbl { font-size: 0.58em; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 1px; }
+    .pd-edit-btn {
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 6px; color: var(--muted); font-size: 0.72em;
+      padding: 5px 12px; cursor: pointer; text-align: center;
+      transition: all 0.2s; width: 100%;
+    }
+    .pd-edit-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+    /* ===================== ARMORY (left panel) ===================== */
+    .armory-section { display: flex; flex-direction: column; gap: 8px; }
+    .weapon-card {
+      background: var(--panel2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 11px 13px;
+      display: flex; align-items: center; gap: 10px;
+      transition: border-color 0.2s;
+    }
+    .weapon-card.owned { border-color: rgba(46,204,113,0.25); }
+    .weapon-card.equipped { border-color: rgba(231,76,60,0.5); background: rgba(231,76,60,0.06); }
+    .weapon-card.locked { opacity: 0.7; }
+    .weapon-icon { font-size: 1.4em; flex-shrink: 0; }
+    .weapon-info { flex: 1; min-width: 0; }
+    .weapon-name { font-size: 0.82em; font-weight: bold; }
+    .weapon-stats { font-size: 0.65em; color: var(--muted); margin-top: 2px; }
+    .weapon-action { flex-shrink: 0; }
+    .btn-weapon {
+      border: none; border-radius: 6px; font-size: 0.7em; font-weight: bold;
+      padding: 5px 10px; cursor: pointer; letter-spacing: 0.5px; transition: all 0.2s;
+    }
+    .btn-weapon.buy { background: #f1c40f; color: #000; }
+    .btn-weapon.buy:hover { background: #d4ac0d; }
+    .btn-weapon.equip { background: var(--panel); border: 1px solid rgba(46,204,113,0.5); color: var(--green); }
+    .btn-weapon.equip:hover { background: rgba(46,204,113,0.1); }
+    .btn-weapon.equipped { background: rgba(231,76,60,0.2); color: var(--accent); border: 1px solid rgba(231,76,60,0.4); cursor: default; }
+    .btn-weapon.locked { background: var(--panel); color: var(--muted); border: 1px solid var(--border); cursor: not-allowed; }
+    .weapon-price { font-size: 0.7em; color: #f1c40f; font-weight: bold; display: flex; align-items: center; gap: 3px; }
+
+    /* ===================== DAILY MISSIONS ===================== */
+    .mission-card {
+      background: var(--panel2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 11px 13px; transition: border-color 0.2s;
+    }
+    .mission-card.done { border-color: rgba(46,204,113,0.4); opacity: 0.7; }
+    .mission-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .mission-icon { font-size: 1.1em; }
+    .mission-title { font-size: 0.82em; font-weight: bold; flex: 1; }
+    .mission-reward { font-size: 0.72em; color: #f1c40f; font-weight: bold; }
+    .mission-desc { font-size: 0.7em; color: var(--muted); margin-bottom: 6px; }
+    .mission-progress-bg { background: rgba(0,0,0,0.4); border-radius: 3px; height: 5px; overflow: hidden; }
+    .mission-progress-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, var(--accent), #ff6b35); transition: width 0.3s; }
+    .mission-progress-text { font-size: 0.65em; color: var(--muted); margin-top: 3px; text-align: right; }
+
+    /* ===================== COINS TOAST ===================== */
+    #coinsToast {
+      position: fixed; bottom: 60px; right: 20px;
+      background: rgba(0,0,0,0.85); border: 1px solid rgba(241,196,15,0.4);
+      border-radius: 8px; padding: 8px 14px;
+      font-size: 0.82em; font-weight: bold; color: #f1c40f;
+      z-index: 57; display: none; pointer-events: none;
+      animation: toastIn 0.3s ease;
+    }
+    #coinsToast.show { display: block; }
+
     /* Flag pickup toast */
     #flagToast {
       position: fixed; top: 90px; left: 50%; transform: translateX(-50%);
@@ -807,59 +912,48 @@
       <div class="status-dot" id="serverStatusDot"></div>
       <span id="serverStatusText">Connecting...</span>
     </div>
+    <!-- Profile widget (hover to expand) -->
+    <div class="profile-widget" id="profileWidget">
+      <div class="topbar-avatar" id="topbarAvatar">?</div>
+      <div class="topbar-coins" id="topbarCoins">💰 0</div>
+      <div class="profile-dropdown" id="profileDropdown">
+        <div class="pd-header">
+          <div class="pd-avatar" id="pdAvatar">?</div>
+          <div class="pd-info">
+            <div class="pd-name" id="pdName">Unknown</div>
+            <div class="pd-rank" id="pdRank">🔫 RECRUIT</div>
+            <div class="pd-coins" id="pdCoins">💰 0 coins</div>
+          </div>
+        </div>
+        <div class="pd-divider"></div>
+        <div class="pd-stats">
+          <div class="pd-stat"><div class="pd-stat-val red" id="pdKills">0</div><div class="pd-stat-lbl">Kills</div></div>
+          <div class="pd-stat"><div class="pd-stat-val blue" id="pdDeaths">0</div><div class="pd-stat-lbl">Deaths</div></div>
+          <div class="pd-stat"><div class="pd-stat-val green" id="pdKD">0.00</div><div class="pd-stat-lbl">K/D</div></div>
+          <div class="pd-stat"><div class="pd-stat-val" id="pdGames">0</div><div class="pd-stat-lbl">Games</div></div>
+          <div class="pd-stat"><div class="pd-stat-val" id="pdWins">0</div><div class="pd-stat-lbl">Wins</div></div>
+          <div class="pd-stat"><div class="pd-stat-val" id="pdStreak">0</div><div class="pd-stat-lbl">Streak</div></div>
+        </div>
+        <div class="pd-divider"></div>
+        <button class="pd-edit-btn" id="pdEditBtn">✏ Change Callsign</button>
+      </div>
+    </div>
     <button class="topbar-btn" id="settingsBtn">⚙ Settings</button>
   </div>
 
   <!-- Main 3-column layout -->
   <div class="home-content">
 
-    <!-- LEFT PANEL: Profile + Stats -->
+    <!-- LEFT PANEL: Armory + Missions -->
     <div class="side-panel left">
-      <div class="panel-title">Player Profile</div>
-
-      <div class="profile-card">
-        <div class="profile-avatar" id="profileAvatar">?</div>
-        <div class="profile-name" id="profileName">Unknown</div>
-        <div class="profile-sub">HYPERFIRE Operative</div>
-        <button class="profile-edit-btn" id="editUsernameBtn">✏ Change Callsign</button>
+      <div class="panel-title">🔫 Arsenal</div>
+      <div class="armory-section" id="armoryList">
+        <!-- Populated by renderArmory() -->
       </div>
 
-      <!-- Rank -->
-      <div class="rank-badge">
-        <div class="rank-icon" id="rankIcon">🔫</div>
-        <div class="rank-info">
-          <div class="rank-name" id="rankName">Recruit</div>
-          <div class="rank-desc" id="rankDesc">Keep fighting!</div>
-        </div>
-      </div>
-
-      <!-- Stats grid -->
-      <div class="panel-title">Statistics</div>
-      <div class="stats-grid">
-        <div class="stat-box">
-          <div class="stat-value red" id="statKills">0</div>
-          <div class="stat-label">Total Kills</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-value blue" id="statDeaths">0</div>
-          <div class="stat-label">Total Deaths</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-value green" id="statKD">0.00</div>
-          <div class="stat-label">K/D Ratio</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-value" id="statGames">0</div>
-          <div class="stat-label">Games</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-value red" id="statStreak">0</div>
-          <div class="stat-label">Best Streak</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-value" id="statScore">0</div>
-          <div class="stat-label">Best Score</div>
-        </div>
+      <div class="panel-title" style="margin-top:4px">📋 Daily Missions</div>
+      <div id="missionsList">
+        <!-- Populated by renderMissions() -->
       </div>
     </div>
 
@@ -1023,6 +1117,7 @@
 <div id="reloadIndicator" class="hud">RELOADING...</div>
 <div id="killFeed" class="hud"></div>
 <div id="flagToast" class="hud"></div>
+<div id="coinsToast"></div>
 
 <div id="minimap" class="hud">
   <canvas id="minimapCanvas" width="120" height="120"></canvas>
@@ -1090,8 +1185,15 @@
       totalKills: 0,
       totalDeaths: 0,
       totalGames: 0,
+      totalWins: 0,
       bestKillStreak: 0,
       highestScore: 0,
+      coins: 0,
+      ownedWeapons: ['ak47', 'pistol'],
+      equippedPrimary: 'ak47',
+      equippedSecondary: 'pistol',
+      dailyMissions: null,
+      dailyDate: null,
       lastPlayed: null
     };
   }
@@ -1129,13 +1231,22 @@
 
   function mergeStats(local, cloud) {
     if (!cloud) return local;
+    // Merge owned weapons (union)
+    const owned = Array.from(new Set([...(local.ownedWeapons || ['ak47','pistol']), ...(cloud.ownedWeapons || [])]));
     return {
       playerName: local.playerName,
       totalKills: Math.max(local.totalKills || 0, cloud.totalKills || 0),
       totalDeaths: Math.max(local.totalDeaths || 0, cloud.totalDeaths || 0),
       totalGames: Math.max(local.totalGames || 0, cloud.totalGames || 0),
+      totalWins: Math.max(local.totalWins || 0, cloud.totalWins || 0),
       bestKillStreak: Math.max(local.bestKillStreak || 0, cloud.bestKillStreak || 0),
       highestScore: Math.max(local.highestScore || 0, cloud.highestScore || 0),
+      coins: Math.max(local.coins || 0, cloud.coins || 0),
+      ownedWeapons: owned,
+      equippedPrimary: local.equippedPrimary || 'ak47',
+      equippedSecondary: local.equippedSecondary || 'pistol',
+      dailyMissions: local.dailyMissions,
+      dailyDate: local.dailyDate,
       lastPlayed: local.lastPlayed
     };
   }
@@ -1172,22 +1283,201 @@
     const deaths = stats.totalDeaths || 0;
     const kd = deaths > 0 ? (kills / deaths).toFixed(2) : kills.toFixed(2);
     const rank = getRank(kills);
+    const coins = stats.coins || 0;
+    const letter = name.charAt(0).toUpperCase() || '?';
+    const color = getAvatarColor(name);
 
-    document.getElementById('profileName').textContent = name;
-    document.getElementById('statKills').textContent = kills;
-    document.getElementById('statDeaths').textContent = deaths;
-    document.getElementById('statKD').textContent = kd;
-    document.getElementById('statGames').textContent = stats.totalGames || 0;
-    document.getElementById('statStreak').textContent = stats.bestKillStreak || 0;
-    document.getElementById('statScore').textContent = stats.highestScore || 0;
-    document.getElementById('rankIcon').textContent = rank.icon;
-    document.getElementById('rankName').textContent = rank.name;
-    document.getElementById('rankDesc').textContent = rank.desc;
+    // Topbar widget
+    const ta = document.getElementById('topbarAvatar');
+    if (ta) { ta.textContent = letter; ta.style.background = color; }
+    const tc = document.getElementById('topbarCoins');
+    if (tc) tc.textContent = `💰 ${coins}`;
 
-    const avatar = document.getElementById('profileAvatar');
-    avatar.textContent = name.charAt(0).toUpperCase() || '?';
-    avatar.style.background = getAvatarColor(name);
+    // Dropdown
+    const pdA = document.getElementById('pdAvatar');
+    if (pdA) { pdA.textContent = letter; pdA.style.background = color; }
+    const pdN = document.getElementById('pdName');
+    if (pdN) pdN.textContent = name;
+    const pdR = document.getElementById('pdRank');
+    if (pdR) pdR.textContent = `${rank.icon} ${rank.name}`;
+    const pdC = document.getElementById('pdCoins');
+    if (pdC) pdC.textContent = `💰 ${coins} coins`;
+    const pdK = document.getElementById('pdKills'); if (pdK) pdK.textContent = kills;
+    const pdD = document.getElementById('pdDeaths'); if (pdD) pdD.textContent = deaths;
+    const pdKD = document.getElementById('pdKD'); if (pdKD) pdKD.textContent = kd;
+    const pdG = document.getElementById('pdGames'); if (pdG) pdG.textContent = stats.totalGames || 0;
+    const pdW = document.getElementById('pdWins'); if (pdW) pdW.textContent = stats.totalWins || 0;
+    const pdS = document.getElementById('pdStreak'); if (pdS) pdS.textContent = stats.bestKillStreak || 0;
+
+    renderArmory();
+    renderMissions();
   }
+
+  // ===================== WEAPON DEFINITIONS =====================
+  const WEAPON_INFO = {
+    ak47:    { name: 'AK-47',         icon: '🔫', tier: 'primary',   damage: 25,  rateLabel: 'Auto',  price: 0,    ammoLabel: '30/90',   desc: 'Reliable assault rifle' },
+    m4a1:    { name: 'M4A1-S',        icon: '🔫', tier: 'primary',   damage: 22,  rateLabel: 'Auto',  price: 500,  ammoLabel: '30/90',   desc: 'Accurate CT carbine' },
+    awp:     { name: 'AWP',           icon: '🎯', tier: 'primary',   damage: 100, rateLabel: 'Bolt',  price: 1000, ammoLabel: '5/20',    desc: '1-shot kill sniper' },
+    shotgun: { name: 'Shotgun',       icon: '💥', tier: 'primary',   damage: 90,  rateLabel: 'Pump',  price: 800,  ammoLabel: '8/32',    desc: 'Devastating up close' },
+    smg:     { name: 'UMP-45',        icon: '🔫', tier: 'primary',   damage: 16,  rateLabel: 'Fast',  price: 600,  ammoLabel: '25/100',  desc: 'Rapid-fire SMG' },
+    pistol:  { name: 'Glock-18',      icon: '🔫', tier: 'secondary', damage: 35,  rateLabel: 'Semi',  price: 0,    ammoLabel: '12/36',   desc: 'Starter sidearm' },
+    deagle:  { name: 'Desert Eagle',  icon: '🦅', tier: 'secondary', damage: 55,  rateLabel: 'Semi',  price: 400,  ammoLabel: '7/28',    desc: 'Powerful sidearm' },
+  };
+  const PRIMARY_WEAPONS   = ['ak47','m4a1','awp','shotgun','smg'];
+  const SECONDARY_WEAPONS_LIST = ['pistol','deagle'];
+
+  function renderArmory() {
+    const el = document.getElementById('armoryList');
+    if (!el) return;
+    const owned = stats.ownedWeapons || ['ak47','pistol'];
+    const eqP = stats.equippedPrimary || 'ak47';
+    const eqS = stats.equippedSecondary || 'pistol';
+    const all = [...PRIMARY_WEAPONS, ...SECONDARY_WEAPONS_LIST];
+
+    el.innerHTML = all.map(wid => {
+      const w = WEAPON_INFO[wid];
+      const isOwned = owned.includes(wid);
+      const isEqP = wid === eqP;
+      const isEqS = wid === eqS;
+      const isEquipped = isEqP || isEqS;
+      const tierLabel = w.tier === 'primary' ? 'PRIMARY' : 'SECONDARY';
+      let cardClass = 'weapon-card';
+      if (isEquipped) cardClass += ' equipped';
+      else if (isOwned) cardClass += ' owned';
+      else cardClass += ' locked';
+
+      let actionHtml;
+      if (isEquipped) {
+        actionHtml = `<button class="btn-weapon equipped" disabled>✓ EQUIPPED</button>`;
+      } else if (isOwned) {
+        actionHtml = `<button class="btn-weapon equip" onclick="equipWeapon('${wid}','${w.tier}')">EQUIP</button>`;
+      } else {
+        const canAfford = (stats.coins || 0) >= w.price;
+        actionHtml = canAfford
+          ? `<div><div class="weapon-price">💰 ${w.price}</div><button class="btn-weapon buy" onclick="buyWeapon('${wid}')">BUY</button></div>`
+          : `<div><div class="weapon-price">💰 ${w.price}</div><button class="btn-weapon locked" disabled>🔒</button></div>`;
+      }
+
+      return `<div class="${cardClass}">
+        <span class="weapon-icon">${w.icon}</span>
+        <div class="weapon-info">
+          <div class="weapon-name">${w.name} <span style="font-size:0.65em;color:var(--muted);font-weight:normal">${tierLabel}</span></div>
+          <div class="weapon-stats">DMG ${w.damage} · ${w.rateLabel} · ${w.ammoLabel}</div>
+        </div>
+        <div class="weapon-action">${actionHtml}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function buyWeapon(wid) {
+    const w = WEAPON_INFO[wid];
+    if (!w) return;
+    if ((stats.coins || 0) < w.price) return;
+    stats.coins -= w.price;
+    if (!stats.ownedWeapons) stats.ownedWeapons = ['ak47','pistol'];
+    if (!stats.ownedWeapons.includes(wid)) stats.ownedWeapons.push(wid);
+    // Auto-equip after buying
+    if (w.tier === 'primary') stats.equippedPrimary = wid;
+    else stats.equippedSecondary = wid;
+    saveStats(stats);
+    updateProfileUI();
+    showCoinsToast(`🔓 Unlocked ${w.name}!`, '#2ecc71');
+  }
+
+  function equipWeapon(wid, tier) {
+    if (tier === 'primary') stats.equippedPrimary = wid;
+    else stats.equippedSecondary = wid;
+    saveStats(stats);
+    renderArmory();
+  }
+
+  // ===================== DAILY MISSIONS =====================
+  const ALL_MISSIONS = [
+    { id: 'kills_5',  icon: '🎯', title: 'First Blood',   desc: 'Get 5 kills',          reward: 50,  type: 'kills',  target: 5  },
+    { id: 'kills_10', icon: '💀', title: 'On a Roll',     desc: 'Get 10 kills',         reward: 100, type: 'kills',  target: 10 },
+    { id: 'kills_20', icon: '🔥', title: 'Rampage',       desc: 'Get 20 kills',         reward: 200, type: 'kills',  target: 20 },
+    { id: 'play_2',   icon: '🎮', title: 'Regular',       desc: 'Play 2 games',         reward: 80,  type: 'games',  target: 2  },
+    { id: 'play_5',   icon: '🏟', title: 'Dedicated',     desc: 'Play 5 games',         reward: 150, type: 'games',  target: 5  },
+    { id: 'streak_3', icon: '⚡', title: 'Triple Threat', desc: 'Get a 3-kill streak',  reward: 75,  type: 'streak', target: 3  },
+    { id: 'streak_5', icon: '🌪', title: 'Unstoppable',   desc: 'Get a 5-kill streak',  reward: 125, type: 'streak', target: 5  },
+    { id: 'wins_1',   icon: '🏆', title: 'Champion',      desc: 'Win 1 match',          reward: 200, type: 'wins',   target: 1  },
+  ];
+
+  function getTodayKey() {
+    const d = new Date();
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  }
+
+  function checkAndInitMissions() {
+    const today = getTodayKey();
+    if (stats.dailyDate !== today || !stats.dailyMissions) {
+      // Generate 3 missions based on daily seed
+      const seed = parseInt(today.replace(/-/g,'')) % ALL_MISSIONS.length;
+      const indices = [];
+      for (let i = 0; i < 3; i++) indices.push((seed + i * 3) % ALL_MISSIONS.length);
+      stats.dailyMissions = indices.map(i => ({ ...ALL_MISSIONS[i], progress: 0, done: false }));
+      stats.dailyDate = today;
+      saveStats(stats);
+    }
+  }
+
+  function renderMissions() {
+    const el = document.getElementById('missionsList');
+    if (!el) return;
+    checkAndInitMissions();
+    const missions = stats.dailyMissions || [];
+    if (!missions.length) { el.innerHTML = '<div style="color:var(--muted);font-size:0.78em;text-align:center;padding:12px">No missions today.</div>'; return; }
+    el.innerHTML = missions.map(m => {
+      const pct = Math.min(100, Math.round((m.progress || 0) / m.target * 100));
+      return `<div class="mission-card ${m.done ? 'done' : ''}">
+        <div class="mission-header">
+          <span class="mission-icon">${m.icon}</span>
+          <span class="mission-title">${m.title}${m.done ? ' ✓' : ''}</span>
+          <span class="mission-reward">+💰${m.reward}</span>
+        </div>
+        <div class="mission-desc">${m.desc}</div>
+        <div class="mission-progress-bg"><div class="mission-progress-fill" style="width:${pct}%"></div></div>
+        <div class="mission-progress-text">${Math.min(m.progress||0, m.target)} / ${m.target}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function updateMissionProgress(type, amount) {
+    checkAndInitMissions();
+    const missions = stats.dailyMissions || [];
+    let earned = 0;
+    missions.forEach(m => {
+      if (m.done || m.type !== type) return;
+      m.progress = (m.progress || 0) + amount;
+      if (m.progress >= m.target) {
+        m.done = true;
+        earned += m.reward;
+      }
+    });
+    stats.dailyMissions = missions;
+    if (earned > 0) {
+      stats.coins = (stats.coins || 0) + earned;
+      saveStats(stats);
+      showCoinsToast(`✅ Mission complete! +💰${earned}`, '#2ecc71');
+      updateProfileUI();
+    } else {
+      saveStats(stats);
+      renderMissions();
+    }
+  }
+
+  // ===================== COINS TOAST =====================
+  function showCoinsToast(msg, color) {
+    const el = document.getElementById('coinsToast');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = color || '#f1c40f';
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(() => el.classList.remove('show'), 2500);
+  }
+  window.buyWeapon = buyWeapon;
+  window.equipWeapon = equipWeapon;
 
   // ===================== SCREEN MANAGEMENT =====================
   let gameInstance = null;
@@ -1381,6 +1671,11 @@
     hideHomePage();
     closeAllModals();
     sessionKills = 0; sessionDeaths = 0; sessionScore = 0; killStreak = 0;
+    // Pass equipped weapons so server knows what to give player
+    window.PLAYER_WEAPONS = {
+      primary: stats.equippedPrimary || 'ak47',
+      secondary: stats.equippedSecondary || 'pistol'
+    };
 
     if (gameInstance) {
       if (gameInstance.socket && gameInstance.socket.socket) {
@@ -1401,6 +1696,8 @@
       stats.lastPlayed = new Date().toISOString();
       saveStats(stats);
       updateProfileUI();
+      // Track game mission
+      updateMissionProgress('games', 1);
 
       // Update mode display in HUD
       const modeEl = document.getElementById('modeDisplay');
@@ -1427,9 +1724,16 @@
       killStreak++;
       sessionScore += 100;
       stats.totalKills = (stats.totalKills || 0) + 1;
+      stats.coins = (stats.coins || 0) + 10;
       if (killStreak > (stats.bestKillStreak || 0)) stats.bestKillStreak = killStreak;
       if (sessionScore > (stats.highestScore || 0)) stats.highestScore = sessionScore;
       saveStats(stats);
+      updateProfileUI();
+      showCoinsToast('+💰10', '#f1c40f');
+      // Mission progress
+      updateMissionProgress('kills', 1);
+      if (killStreak === 3) updateMissionProgress('streak', 3);
+      if (killStreak === 5) updateMissionProgress('streak', 5);
     };
 
     // Callback: player died
@@ -1615,12 +1919,13 @@
     }
   });
 
-  // Edit username
-  document.getElementById('editUsernameBtn').addEventListener('click', () => {
+  // Edit username (from dropdown)
+  function openEditUsername() {
     document.getElementById('usernameInput').value = stats.playerName || '';
     hideHomePage();
     document.getElementById('usernameModal').classList.add('show');
-  });
+  }
+  document.getElementById('pdEditBtn').addEventListener('click', openEditUsername);
 
   // Pause: Resume
   document.getElementById('resumeBtn').addEventListener('click', () => {
@@ -1683,16 +1988,36 @@
   }
   window.showFlagToast = showFlagToast;
 
-  // Patch game.js socket setup to handle flagEvent and roomListUpdate
+  // Patch game.js socket setup to handle flagEvent, roomListUpdate, win detection
   const _origSetupSocketEvents = FPSGame.prototype._setupSocketEvents;
   FPSGame.prototype._setupSocketEvents = function() {
     _origSetupSocketEvents.call(this);
     const socket = this.socket;
+    const gameRef = this;
 
     // Keep server browser room list fresh
     socket.on('roomListUpdate', (rooms) => {
       if (document.getElementById('serverBrowserModal').classList.contains('show')) {
         renderRoomList(rooms);
+      }
+    });
+
+    // Win detection: first team to 30 kills (or 5 CTF captures) wins
+    const WIN_SCORE = { tdm: 30, ffa: 20, ctf: 5, pvc: 30 };
+    let matchWon = false;
+    socket.on('scoreUpdate', (scores) => {
+      if (matchWon || !inGame) return;
+      const limit = WIN_SCORE[currentMode] || 30;
+      const myTeam = gameRef.localTeam;
+      const myScore = scores[myTeam] || 0;
+      if (myScore >= limit) {
+        matchWon = true;
+        stats.totalWins = (stats.totalWins || 0) + 1;
+        stats.coins = (stats.coins || 0) + 200;
+        saveStats(stats);
+        updateProfileUI();
+        showCoinsToast('🏆 Match Won! +💰200', '#2ecc71');
+        updateMissionProgress('wins', 1);
       }
     });
 
