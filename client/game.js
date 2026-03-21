@@ -170,6 +170,7 @@ class FPSGame {
 
     this.audio.init();
     this._preloadSoldierModels();
+    this._preloadWeaponModels();
 
     this.socket.connect(this.serverUrl);
     this._setupSocketEvents();
@@ -227,6 +228,40 @@ class FPSGame {
     clone.userData.walkCycle = 0;
     clone.userData.prevX = old.userData.prevX || 0;
     clone.userData.prevZ = old.userData.prevZ || 0;
+  }
+
+  _preloadWeaponModels() {
+    if (typeof THREE.GLTFLoader === 'undefined') return;
+    const loader = new THREE.GLTFLoader();
+    const weapons = ['ak47','m4a1','awp','shotgun','smg','pistol','deagle'];
+    // Weapon base positions in camera space
+    const basePos = this.weaponBasePos;
+    weapons.forEach(name => {
+      loader.load(
+        `./client/models/weapons/weapon_${name}.glb`,
+        (gltf) => {
+          const model = gltf.scene;
+          // Scale to first-person size and orient
+          model.scale.setScalar(0.38);
+          model.rotation.set(0, Math.PI, 0);
+          const bp = basePos[name] || { x: 0.2, y: -0.28, z: -0.38 };
+          model.position.set(bp.x, bp.y, bp.z);
+          model.traverse(c => { if (c.isMesh) { c.castShadow = false; c.receiveShadow = false; } });
+
+          // Hide all then swap in camera
+          const old = this.weaponModels[name];
+          model.visible = old ? old.visible : false;
+          if (old) this.camera.remove(old);
+          this.camera.add(model);
+          this.weaponModels[name] = model;
+          if (name === 'ak47') this.rifleModel = model;
+          if (name === 'pistol') this.pistolModel = model;
+          console.log(`[HYPERFIRE] Loaded weapon_${name}.glb`);
+        },
+        undefined,
+        () => { /* no GLB yet — keep procedural model */ }
+      );
+    });
   }
 
   // ---- Renderer ----
@@ -974,6 +1009,9 @@ class FPSGame {
     // Gunshot sound
     this.audio.playShot(this.weapon);
 
+    // Eject shell casing
+    this._spawnCasing(this.weapon);
+
     // Send to server
     this.socket.sendShoot({
       yaw: this.yaw,
@@ -1100,6 +1138,70 @@ class FPSGame {
       this.scene.add(p);
       this.particles.push({ mesh: p, vel, life: 0.6, maxLife: 0.6, isDust: true });
     }
+  }
+
+  _showEnemyHealthBar(victimId, health) {
+    const rp = this.remotePlayers.get(victimId);
+    if (!rp) return;
+    // Remove existing bar if any
+    if (rp.healthBarMesh) { rp.mesh.remove(rp.healthBarMesh); rp.healthBarMesh = null; }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 128; canvas.height = 20;
+    const ctx = canvas.getContext('2d');
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.roundRect(2, 4, 124, 12, 4);
+    ctx.fill();
+    // Bar fill — color by health
+    const pct = Math.max(0, health / 100);
+    ctx.fillStyle = pct > 0.5 ? `rgb(${Math.round(255*(1-pct)*2)},220,40)` : `rgb(220,${Math.round(220*pct*2)},40)`;
+    if (pct > 0) { ctx.roundRect(3, 5, Math.round(122 * pct), 10, 3); ctx.fill(); }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
+    sprite.scale.set(1.2, 0.19, 1);
+    sprite.position.set(0, 2.35, 0);
+    rp.mesh.add(sprite);
+    rp.healthBarMesh = sprite;
+
+    // Auto-hide after 2s
+    clearTimeout(rp._hbTimer);
+    rp._hbTimer = setTimeout(() => {
+      if (rp.healthBarMesh) { rp.mesh.remove(rp.healthBarMesh); rp.healthBarMesh = null; }
+    }, 2000);
+  }
+
+  _spawnCasing(weaponType) {
+    // Eject a brass casing from the gun to the right
+    const awp = weaponType === 'awp';
+    const shotgun = weaponType === 'shotgun';
+    const r = shotgun ? 0.045 : 0.018;
+    const h = shotgun ? 0.075 : awp ? 0.055 : 0.038;
+    const geo = new THREE.CylinderGeometry(r, r, h, 6);
+    const mat = new THREE.MeshStandardMaterial({ color: shotgun ? 0xcc4400 : 0xc8902a, roughness: 0.3, metalness: 0.9 });
+    const casing = new THREE.Mesh(geo, mat);
+    casing.castShadow = false;
+
+    // Start at camera position (ejection port — slightly right & forward)
+    const right = new THREE.Vector3();
+    right.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw)).normalize();
+    const fwd = new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)).normalize();
+    casing.position.copy(this.camera.position)
+      .addScaledVector(right, 0.3)
+      .addScaledVector(fwd, -0.2);
+    casing.position.y -= 0.15;
+
+    const vel = new THREE.Vector3(
+      right.x * (0.12 + Math.random() * 0.08) + (Math.random()-0.5)*0.04,
+      0.08 + Math.random() * 0.06,
+      right.z * (0.12 + Math.random() * 0.08) + (Math.random()-0.5)*0.04
+    );
+    const spin = new THREE.Vector3(
+      (Math.random()-0.5)*0.4, (Math.random()-0.5)*0.4, (Math.random()-0.5)*0.4
+    );
+    this.scene.add(casing);
+    this.particles.push({ mesh: casing, vel, spin, life: 1.5, maxLife: 1.5, isCasing: true });
   }
 
   _addBulletTracer(from, to) {
@@ -1393,17 +1495,17 @@ class FPSGame {
       if (me) {
         this.kills = me.kills;
         this.ui.updateKillScore(me.kills);
-        // Sync Y: only correct from server if significantly off (let client prediction run)
+        // Sync Y: gentle correction only — client physics now matches server 20 TPS
         const serverCamY = me.y + 0.6;
         const diff = serverCamY - this.camera.position.y;
-        if (Math.abs(diff) > 0.3) {
-          // Hard snap if very far off
+        if (Math.abs(diff) > 1.5) {
+          // Hard snap only if wildly off (teleport / respawn)
           this.camera.position.y = serverCamY;
           this.clientVY = 0;
-          this.clientOnGround = (me.y <= 0.91);
+          this.clientOnGround = (me.y <= 0.92);
         } else if (Math.abs(diff) > 0.05) {
-          // Gentle lerp to avoid jitter
-          this.camera.position.y += diff * 0.15;
+          // Smooth blend — never fight the client arc mid-air
+          this.camera.position.y += diff * 0.08;
         }
       }
 
@@ -1479,6 +1581,10 @@ class FPSGame {
       }
       const pos = new THREE.Vector3(data.hitPoint.x, data.hitPoint.y, data.hitPoint.z);
       this._spawnBloodParticles(pos);
+      // Show floating health bar on the hit enemy
+      if (data.victimId && data.victimHealth !== undefined) {
+        this._showEnemyHealthBar(data.victimId, data.victimHealth);
+      }
     });
 
     this.socket.on('bulletImpact', (data) => {
@@ -1664,20 +1770,25 @@ class FPSGame {
         }
       }
 
-      // Client-side vertical prediction (jump + gravity)
+      // Client-side vertical prediction — fixed 20 TPS to match server exactly
       const GRAVITY_C = -0.015;
       const JUMP_FORCE_C = 0.25;
-      const EYE_H = 1.5; // camera Y when on ground
+      const EYE_H = 1.5;
+      const PHYS_STEP = 50; // ms (20 TPS)
 
-      this.clientVY += GRAVITY_C;
-      const newY = this.camera.position.y + this.clientVY;
-      if (newY <= EYE_H) {
-        this.camera.position.y = EYE_H;
-        this.clientVY = 0;
-        this.clientOnGround = true;
-      } else {
-        this.camera.position.y = newY;
-        this.clientOnGround = false;
+      this._physAccum = (this._physAccum || 0) + 16; // ~16ms per frame
+      while (this._physAccum >= PHYS_STEP) {
+        this._physAccum -= PHYS_STEP;
+        this.clientVY += GRAVITY_C;
+        const newY = this.camera.position.y + this.clientVY;
+        if (newY <= EYE_H) {
+          this.camera.position.y = EYE_H;
+          this.clientVY = 0;
+          this.clientOnGround = true;
+        } else {
+          this.camera.position.y = newY;
+          this.clientOnGround = false;
+        }
       }
       if (this.keys['Space'] && this.clientOnGround) {
         this.clientVY = JUMP_FORCE_C;
@@ -1707,10 +1818,36 @@ class FPSGame {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.life -= 0.016;
-      p.vel.y -= 0.01;
-      p.mesh.position.add(p.vel);
-      p.mesh.material.opacity = p.life / p.maxLife;
-      p.mesh.material.transparent = true;
+
+      if (p.isCasing) {
+        // Brass casing: gravity + bounce off floor
+        p.vel.y -= 0.018;
+        p.mesh.position.add(p.vel);
+        if (p.mesh.position.y < 0.03) {
+          p.mesh.position.y = 0.03;
+          p.vel.y *= -0.35;  // bounce
+          p.vel.x *= 0.6;
+          p.vel.z *= 0.6;
+        }
+        if (p.spin) {
+          p.mesh.rotation.x += p.spin.x;
+          p.mesh.rotation.y += p.spin.y;
+          p.mesh.rotation.z += p.spin.z;
+          p.spin.multiplyScalar(0.97); // slow spin
+        }
+        // Fade out in last 0.4s
+        const fadeStart = 0.4;
+        if (p.life < fadeStart) {
+          p.mesh.material.transparent = true;
+          p.mesh.material.opacity = p.life / fadeStart;
+        }
+      } else {
+        p.vel.y -= 0.01;
+        p.mesh.position.add(p.vel);
+        p.mesh.material.opacity = p.life / p.maxLife;
+        p.mesh.material.transparent = true;
+      }
+
       if (p.life <= 0) {
         this.scene.remove(p.mesh);
         this.particles.splice(i, 1);

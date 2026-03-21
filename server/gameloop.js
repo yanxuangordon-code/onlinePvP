@@ -314,7 +314,7 @@ class GameLoop {
         this.killPlayer(hit, player);
       }
 
-      this._broadcast('hitConfirm', { shooterId: id, targetId: hit.id, hitPoint, headshot: !!headshot });
+      this._broadcast('hitConfirm', { shooterId: id, targetId: hit.id, victimId: hit.id, victimHealth: Math.max(0, hit.health), hitPoint, headshot: !!headshot });
     } else {
       this._broadcast('bulletImpact', { shooterId: id, hitPoint, dir });
     }
