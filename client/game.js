@@ -140,6 +140,9 @@ class FPSGame {
 
     // Soldier GLB models (loaded async; null = not yet loaded)
     this.soldierModels = { ct: null, t: null };
+
+    // Audio
+    this.audio = new AudioManager();
   }
 
   // Client-side wall collision (mirrors server collidesWithWall)
@@ -165,6 +168,7 @@ class FPSGame {
     this._initInput();
     this.ui.init();
 
+    this.audio.init();
     this._preloadSoldierModels();
 
     this.socket.connect(this.serverUrl);
@@ -933,6 +937,7 @@ class FPSGame {
     for (const [k, m] of Object.entries(this.weaponModels)) {
       m.visible = (k === weapon);
     }
+    this.audio.playWeaponSwitch();
     this.ui.updateWeapon(weapon);
     const a = this.ammo[weapon];
     if (a) this.ui.updateAmmo(a.ammo, a.maxAmmo);
@@ -965,6 +970,9 @@ class FPSGame {
 
     // Gun recoil animation
     this._recoilAnim();
+
+    // Gunshot sound
+    this.audio.playShot(this.weapon);
 
     // Send to server
     this.socket.sendShoot({
@@ -1406,6 +1414,7 @@ class FPSGame {
     });
 
     this.socket.on('damaged', (data) => {
+      this.audio.playDamaged();
       this.health = data.health;
       this.ui.updateHealth(data.health);
 
@@ -1431,17 +1440,20 @@ class FPSGame {
 
       if (data.victimId === this.localId) {
         this.alive = false;
+        this.audio.playDeath();
         this.ui.showDeathScreen(3000);
         this.ui.hideReloading();
         if (this.onDeath) this.onDeath();
       }
 
       if (data.killerId === this.localId) {
+        this.audio.playKillConfirm();
         if (this.onKill) this.onKill();
       }
     });
 
     this.socket.on('respawn', (data) => {
+      this.audio.playRespawn();
       this.alive = true;
       this.health = 100;
       this.reloading = false;
@@ -1463,12 +1475,14 @@ class FPSGame {
     this.socket.on('hitConfirm', (data) => {
       if (data.shooterId === this.localId) {
         this.ui.showHitMarker();
+        this.audio.playHitConfirm();
       }
       const pos = new THREE.Vector3(data.hitPoint.x, data.hitPoint.y, data.hitPoint.z);
       this._spawnBloodParticles(pos);
     });
 
     this.socket.on('bulletImpact', (data) => {
+      this.audio.playBulletImpact();
       const pos = new THREE.Vector3(data.hitPoint.x, data.hitPoint.y, data.hitPoint.z);
       this._spawnImpactParticles(pos);
 
@@ -1498,11 +1512,13 @@ class FPSGame {
 
     this.socket.on('reloadStart', (data) => {
       this.reloading = true;
+      this.audio.playReloadStart();
       this.ui.showReloading(data.duration);
     });
 
     this.socket.on('reloadEnd', (data) => {
       this.reloading = false;
+      this.audio.playReloadEnd();
       this.ui.hideReloading();
       if (this.ammo[this.weapon]) {
         this.ammo[this.weapon].ammo = data.ammo;
@@ -1666,6 +1682,7 @@ class FPSGame {
       if (this.keys['Space'] && this.clientOnGround) {
         this.clientVY = JUMP_FORCE_C;
         this.clientOnGround = false;
+        this.audio.playJump();
       }
 
       // Walk bob (only on ground while moving)
@@ -1678,6 +1695,7 @@ class FPSGame {
         if (this.footstepTimer > 550) {
           this.footstepTimer = 0;
           this._spawnFootstepDust();
+          this.audio.playFootstep();
         }
       } else {
         this.footstepTimer = 0;
