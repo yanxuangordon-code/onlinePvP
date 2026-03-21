@@ -1240,6 +1240,56 @@ class FPSGame {
     this.tracers.push({ mesh: tracer, life: 0.1 });
   }
 
+  _spawnBulletHole(pos) {
+    const size = 0.07 + Math.random() * 0.06;
+    const geo = new THREE.CircleGeometry(size, 7);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x050505,
+      transparent: true,
+      opacity: 0.88,
+      depthWrite: false,
+    });
+    const hole = new THREE.Mesh(geo, mat);
+    hole.position.copy(pos);
+
+    // Orient hole to face camera
+    hole.lookAt(this.camera.position);
+    // Push slightly toward camera to avoid z-fighting
+    const dir = new THREE.Vector3().subVectors(this.camera.position, pos).normalize();
+    hole.position.addScaledVector(dir, 0.02);
+
+    // Add cracks around hole
+    for (let i = 0; i < 4; i++) {
+      const angle = (i / 4) * Math.PI * 2 + Math.random() * 0.5;
+      const len = size * (1.5 + Math.random());
+      const crackGeo = new THREE.PlaneGeometry(0.012, len);
+      const crack = new THREE.Mesh(crackGeo, mat.clone());
+      crack.position.copy(pos).addScaledVector(dir, 0.021);
+      crack.lookAt(this.camera.position);
+      crack.rotateZ(angle);
+      crack.position.x += Math.cos(angle) * len * 0.5;
+      crack.position.y += Math.sin(angle) * len * 0.5;
+      this.scene.add(crack);
+      // fade crack
+      setTimeout(() => {
+        const fi = setInterval(() => {
+          crack.material.opacity -= 0.005;
+          if (crack.material.opacity <= 0) { clearInterval(fi); this.scene.remove(crack); }
+        }, 500);
+      }, 8000);
+    }
+
+    this.scene.add(hole);
+
+    // Fade after 10 seconds
+    setTimeout(() => {
+      const fadeInt = setInterval(() => {
+        hole.material.opacity -= 0.004;
+        if (hole.material.opacity <= 0) { clearInterval(fadeInt); this.scene.remove(hole); }
+      }, 500);
+    }, 10000);
+  }
+
   // ---- Remote Players ----
 
   _createPlayerMesh(team) {
@@ -1607,8 +1657,8 @@ class FPSGame {
       }
       const pos = new THREE.Vector3(data.hitPoint.x, data.hitPoint.y, data.hitPoint.z);
       this._spawnBloodParticles(pos);
-      // Show floating health bar on the hit enemy
-      if (data.victimId && data.victimHealth !== undefined) {
+      // Show health bar — always, for any hit (not just when you shoot)
+      if (data.victimId !== undefined && data.victimHealth !== undefined) {
         this._showEnemyHealthBar(data.victimId, data.victimHealth);
       }
     });
@@ -1617,22 +1667,8 @@ class FPSGame {
       this.audio.playBulletImpact();
       const pos = new THREE.Vector3(data.hitPoint.x, data.hitPoint.y, data.hitPoint.z);
       this._spawnImpactParticles(pos);
-
-      // Bullet hole decal — orient toward camera so it's always visible
-      const decal = new THREE.Mesh(
-        new THREE.CircleGeometry(0.07, 8),
-        new THREE.MeshBasicMaterial({ color: 0x0a0a0a, transparent: true, opacity: 0.85 })
-      );
-      decal.position.copy(pos);
-      decal.lookAt(this.camera.position);
-      this.scene.add(decal);
-      // Fade out then remove
-      let fade = 1;
-      const fadeInterval = setInterval(() => {
-        fade -= 0.005;
-        decal.material.opacity = 0.85 * fade;
-        if (fade <= 0) { clearInterval(fadeInterval); this.scene.remove(decal); }
-      }, 100);
+      // Bullet hole on wall
+      this._spawnBulletHole(pos);
     });
 
     this.socket.on('ammoUpdate', (data) => {
@@ -1851,30 +1887,27 @@ class FPSGame {
         }
       }
 
-      // Client-side vertical prediction — fixed 20 TPS to match server exactly
-      const GRAVITY_C = -0.015;
-      const JUMP_FORCE_C = 0.35;
+      // Client-side vertical prediction — per-frame scaled to match 20 TPS trajectory
+      const GRAVITY_C   = -0.015;  // server gravity per tick
+      const JUMP_FORCE_C = 0.35;   // server jump force
       const EYE_H = 1.5;
-      const PHYS_STEP = 50; // ms (20 TPS)
+      const SCALE = 16 / 50; // ~3 client frames per server tick
 
-      this._physAccum = (this._physAccum || 0) + 16; // ~16ms per frame
-      while (this._physAccum >= PHYS_STEP) {
-        this._physAccum -= PHYS_STEP;
-        this.clientVY += GRAVITY_C;
-        const newY = this.camera.position.y + this.clientVY;
-        if (newY <= EYE_H) {
-          this.camera.position.y = EYE_H;
-          this.clientVY = 0;
-          this.clientOnGround = true;
-        } else {
-          this.camera.position.y = newY;
-          this.clientOnGround = false;
-        }
-      }
       if (this.keys['Space'] && this.clientOnGround) {
         this.clientVY = JUMP_FORCE_C;
         this.clientOnGround = false;
         this.audio.playJump();
+      }
+
+      this.clientVY += GRAVITY_C * SCALE;
+      const newY = this.camera.position.y + this.clientVY * SCALE;
+      if (newY <= EYE_H) {
+        this.camera.position.y = EYE_H;
+        this.clientVY = 0;
+        this.clientOnGround = true;
+      } else {
+        this.camera.position.y = newY;
+        this.clientOnGround = false;
       }
 
       // Walk bob (only on ground while moving)

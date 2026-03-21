@@ -378,7 +378,7 @@ class GameLoop {
 
     for (const [otherId, other] of this.players) {
       if (otherId === id || !other.alive) continue;
-      const isEnemy = this.mode === 'ffa' ? true : other.team !== player.team;
+      const isEnemy = (this.mode === 'ffa' || this.mode === 'pvc') ? true : other.team !== player.team;
       if (!isEnemy) continue;
 
       const dx = other.x - origin.x;
@@ -586,14 +586,14 @@ class GameLoop {
     if (nearest) {
       const dx = nearest.x - bot.x, dz = nearest.z - bot.z;
 
-      if (minDist < 70) {
+      if (minDist < 120) {
         // Seek: always navigate toward enemy when in range
         bot.yaw = Math.atan2(-dx, -dz);
         bot.pitch = 0;
         bot.moveForward = minDist > 4;
       }
 
-      if (minDist < 50) {
+      if (minDist < 80) {
         // Shoot: aim with slight inaccuracy and fire
         bot.yaw = Math.atan2(-dx, -dz) + (Math.random() - 0.5) * 0.18;
         bot.pitch = (Math.random() - 0.5) * 0.08;
@@ -603,6 +603,11 @@ class GameLoop {
           this.handleShoot(bot.id, {});
           bot._botShootCooldown = 2 + Math.floor(Math.random() * 4);
         }
+      }
+      // Strafe randomly so bots don't cluster
+      if (minDist < 15) {
+        bot.moveLeft  = Math.random() < 0.3;
+        bot.moveRight = Math.random() < 0.3 && !bot.moveLeft;
       }
     }
   }
