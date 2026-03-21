@@ -241,7 +241,6 @@ def select_hierarchy(root):
 
 def export_glb(root, filepath):
     select_hierarchy(root)
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
     bpy.ops.export_scene.gltf(
         filepath=filepath,
         use_selection=True,
@@ -258,8 +257,9 @@ def export_glb(root, filepath):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    models_dir = os.path.normpath(os.path.join(script_dir, "..", "client", "models"))
+    # Hardcoded path — works when run from Blender's Scripting tab
+    models_dir = "/Users/gordonyanxuan/onlinePvP/.claude/worktrees/wizardly-wilson/client/models"
+    os.makedirs(models_dir, exist_ok=True)
 
     clear_scene()
 
