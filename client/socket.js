@@ -1,4 +1,4 @@
-// Socket.io client wrapper for HYPERFIRE
+// Socket.io client wrapper for Krunker
 
 class GameSocket {
   constructor() {
@@ -62,12 +62,12 @@ class GameSocket {
 
   // Join best available room (quick play)
   quickPlay(name, weapons) {
-    this.socket.emit('quickPlay', { name, weapons });
+    this.socket.emit('quickPlay', { name, weapons, playerClass: window.PLAYER_CLASS || 'triggerman' });
   }
 
   // Join a specific room by id
   joinRoom(name, roomId, weapons) {
-    this.socket.emit('joinRoom', { name, roomId, weapons });
+    this.socket.emit('joinRoom', { name, roomId, weapons, playerClass: window.PLAYER_CLASS || 'triggerman' });
   }
 
   // Legacy join (uses quick play on server)

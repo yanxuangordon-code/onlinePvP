@@ -141,6 +141,22 @@ class FPSGame {
     this.footstepTimer = 0;
     this.lastFootY = 0;
 
+    // Slide mechanic
+    this.sliding = false;
+    this.slideTimer = 0;
+    this.slideDuration = 650; // ms
+    this.slideCooldown = 0;
+    this.slideCooldownTime = 1200; // ms
+    this.slideDir = { x: 0, z: 0 };
+    this.slideSpeed = 0.22; // units per frame when sliding
+
+    // Scope (Hunter class only)
+    this.scoped = false;
+    this.scopedFOV = 20;
+    this.normalFOV = 75;
+    this.playerClass = 'triggerman';
+    this.classSpeed = 1.0;
+
     // Soldier GLB models (loaded async; null = not yet loaded)
     this.soldierModels = { ct: null, t: null };
 
@@ -649,6 +665,10 @@ class FPSGame {
       }
       if (e.code === 'Digit1') this._switchToPrimary();
       if (e.code === 'Digit2') this._switchToSecondary();
+      // Slide — Ctrl key
+      if ((e.code === 'ControlLeft' || e.code === 'ControlRight') && this.alive && this.pointerLocked) {
+        this._trySlide();
+      }
     });
 
     document.addEventListener('keyup', (e) => {
@@ -682,10 +702,19 @@ class FPSGame {
           this.shootHeld = true;
         }
       }
+      // Right-click: scope in (Hunter class only)
+      if (e.button === 2 && this.playerClass === 'hunter' && this.alive && this.pointerLocked) {
+        this._setScoped(true);
+      }
     });
 
     document.addEventListener('mouseup', (e) => {
       if (e.button === 0) this.shootHeld = false;
+      if (e.button === 2) this._setScoped(false);
+    });
+
+    document.addEventListener('contextmenu', (e) => {
+      if (this.pointerLocked) e.preventDefault();
     });
 
     document.addEventListener('pointerlockchange', () => {
@@ -717,6 +746,135 @@ class FPSGame {
 
   _switchToPrimary() { this._switchWeapon(this.primaryWeapon); }
   _switchToSecondary() { this._switchWeapon(this.secondaryWeapon); }
+
+  // ---- Slide ----
+  _trySlide() {
+    if (!this.clientOnGround) return;
+    if (this.sliding) return;
+    if (Date.now() < this.slideCooldown) return;
+
+    // Need to be moving to slide
+    const moving = this.keys['KeyW'] || this.keys['KeyS'] || this.keys['KeyA'] || this.keys['KeyD'];
+    if (!moving) return;
+
+    this.sliding = true;
+    this.slideTimer = Date.now() + this.slideDuration;
+
+    // Capture slide direction from current movement
+    const cos = Math.cos(this.yaw);
+    const sin = Math.sin(this.yaw);
+    let dx = 0, dz = 0;
+    if (this.keys['KeyW']) { dx -= sin; dz -= cos; }
+    if (this.keys['KeyS']) { dx += sin; dz += cos; }
+    if (this.keys['KeyA']) { dx -= cos; dz += sin; }
+    if (this.keys['KeyD']) { dx += cos; dz -= sin; }
+    const len = Math.sqrt(dx * dx + dz * dz) || 1;
+    this.slideDir = { x: dx / len, z: dz / len };
+
+    // Show slide indicator
+    const si = document.getElementById('slideIndicator');
+    if (si) si.classList.add('active');
+
+    // Unscope if scoped
+    this._setScoped(false);
+  }
+
+  _endSlide() {
+    this.sliding = false;
+    this.slideCooldown = Date.now() + this.slideCooldownTime;
+    const si = document.getElementById('slideIndicator');
+    if (si) si.classList.remove('active');
+  }
+
+  // ---- Scope (Hunter only) ----
+  _setScoped(on) {
+    if (this.scoped === on) return;
+    if (on && this.sliding) return;
+    this.scoped = on;
+
+    // FOV change
+    if (this.camera) {
+      this.camera.fov = on ? this.scopedFOV : (this._currentFOV || this.normalFOV);
+      this.camera.updateProjectionMatrix();
+    }
+
+    // Sensitivity change (halved when scoped)
+    this._baseSensitivity = this._baseSensitivity || this.sensitivity;
+    this.sensitivity = on ? this._baseSensitivity * 0.35 : this._baseSensitivity;
+
+    // Show/hide scope overlay
+    const overlay = document.getElementById('scopeOverlay');
+    if (overlay) {
+      if (on) {
+        overlay.classList.add('active');
+        this._renderScopeOverlay();
+      } else {
+        overlay.classList.remove('active');
+      }
+    }
+
+    // Hide crosshair when scoped
+    const ch = document.getElementById('crosshair');
+    const chd = document.getElementById('crosshairDot');
+    if (ch) ch.style.display = on ? 'none' : '';
+    if (chd) chd.style.display = on ? 'none' : '';
+  }
+
+  _renderScopeOverlay() {
+    const canvas = document.getElementById('scopeCanvas');
+    if (!canvas) return;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const ctx = canvas.getContext('2d');
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const r = Math.min(cx, cy) * 0.42;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Dark vignette outside scope circle
+    ctx.fillStyle = 'rgba(0,0,0,0.97)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Cut out the scope circle
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Scope circle border
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Crosshair reticle
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+    ctx.lineWidth = 1.5;
+    // Horizontal line
+    ctx.beginPath();
+    ctx.moveTo(cx - r, cy);
+    ctx.lineTo(cx + r, cy);
+    ctx.stroke();
+    // Vertical line
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - r);
+    ctx.lineTo(cx, cy + r);
+    ctx.stroke();
+    // Center dot
+    ctx.fillStyle = 'rgba(255,0,0,0.9)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+    // Mil-dot markers
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    [-r*0.5, r*0.5].forEach(offset => {
+      ctx.beginPath(); ctx.arc(cx + offset, cy, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx, cy + offset, 3, 0, Math.PI * 2); ctx.fill();
+    });
+  }
 
   // ---- Shooting ----
 
@@ -1197,6 +1355,21 @@ class FPSGame {
       this.localId = data.id;
       this.localTeam = data.team;
       this.localMode = data.mode || 'tdm';
+
+      // Apply class stats from home screen selection
+      this.playerClass = window.PLAYER_CLASS || 'triggerman';
+      this.classSpeed  = window.PLAYER_CLASS_SPEED || 1.0;
+      this._baseSensitivity = this.sensitivity;
+
+      // Show class badge in HUD
+      const classNames = {
+        triggerman: 'TRIGGERMAN', hunter: 'HUNTER', runngun: 'RUN N GUN',
+        spraypray: 'SPRAY N PRAY', rocketeer: 'ROCKETEER', detective: 'DETECTIVE',
+        agent: 'AGENT', marksman: 'MARKSMAN'
+      };
+      const badge = document.getElementById('classBadge');
+      if (badge) badge.textContent = classNames[this.playerClass] || this.playerClass.toUpperCase();
+
       this.ui.localPlayerId = data.id;
       this.currentMap = data.map || 'arena';
       this._syncClientWalls(data.map);
@@ -1214,8 +1387,11 @@ class FPSGame {
       // Show correct gun model
       for (const [k, m] of Object.entries(this.weaponModels)) m.visible = (k === this.weapon);
 
+      this.maxHealth = data.maxHealth || 100;
+      this.health = data.health || this.maxHealth;
+
       this.ui.updateTeam(data.team);
-      this.ui.updateHealth(100);
+      this.ui.updateHealth(this.health, this.maxHealth);
       this.ui.updateAmmo(data.ammo, data.maxAmmo);
       this.ui.updateWeapon(this.primaryWeapon);
 
@@ -1257,7 +1433,7 @@ class FPSGame {
     this.socket.on('damaged', (data) => {
       this.audio.playDamaged();
       this.health = data.health;
-      this.ui.updateHealth(data.health);
+      this.ui.updateHealth(data.health, this.maxHealth);
 
       // Screen flash
       const flash = document.getElementById('damageFlash');
@@ -1296,8 +1472,10 @@ class FPSGame {
     this.socket.on('respawn', (data) => {
       this.audio.playRespawn();
       this.alive = true;
-      this.health = 100;
+      this.health = this.maxHealth || 100;
       this.reloading = false;
+      this._setScoped(false);
+      if (this.sliding) this._endSlide();
       this.camera.position.set(data.x, data.y + 0.6, data.z);
       // Reset ammo from weapon defaults
       const WFR = this.WEAPON_FIRE_RATE;
@@ -1306,7 +1484,7 @@ class FPSGame {
       this.ammo[this.secondaryWeapon] = { ...(AMMO_DEFAULTS[this.secondaryWeapon] || AMMO_DEFAULTS.pistol) };
       this.weapon = this.primaryWeapon;
       for (const [k, m] of Object.entries(this.weaponModels)) m.visible = (k === this.weapon);
-      this.ui.updateHealth(100);
+      this.ui.updateHealth(this.health, this.maxHealth);
       const a = this.ammo[this.weapon];
       this.ui.updateAmmo(a.ammo, a.maxAmmo);
       this.ui.updateWeapon(this.weapon);
@@ -1524,39 +1702,63 @@ class FPSGame {
 
     // Client-side position prediction (smooth movement)
     if (this.alive) {
-      const speed = 0.12;
+      const baseSpeed = 0.12 * (this.classSpeed || 1.0);
       let dx = 0, dz = 0;
       const cos = Math.cos(this.yaw);
       const sin = Math.sin(this.yaw);
 
-      // Camera looks at -Z when yaw=0, so forward = (-sin, 0, -cos)
-      if (this.keys['KeyW']) { dx -= sin; dz -= cos; }
-      if (this.keys['KeyS']) { dx += sin; dz += cos; }
-      if (this.keys['KeyA']) { dx -= cos; dz += sin; }
-      if (this.keys['KeyD']) { dx += cos; dz -= sin; }
-
-      const len = Math.sqrt(dx * dx + dz * dz);
-      if (len > 0) {
-        const moveX = (dx / len) * speed;
-        const moveZ = (dz / len) * speed;
-        const PLAYER_R = 0.35;
-        const newX = this.camera.position.x + moveX;
-        const newZ = this.camera.position.z + moveZ;
-        if (!this._collidesWithWall(newX, this.camera.position.z, PLAYER_R)) {
-          this.camera.position.x = newX;
+      // Slide: check if slide should end
+      if (this.sliding) {
+        if (Date.now() > this.slideTimer || !this.clientOnGround) {
+          this._endSlide();
+        } else {
+          // Move in locked slide direction at slide speed
+          const sSpeed = this.slideSpeed * (this.classSpeed || 1.0);
+          const slideX = this.slideDir.x * sSpeed;
+          const slideZ = this.slideDir.z * sSpeed;
+          const PLAYER_R = 0.35;
+          if (!this._collidesWithWall(this.camera.position.x + slideX, this.camera.position.z, PLAYER_R))
+            this.camera.position.x += slideX;
+          if (!this._collidesWithWall(this.camera.position.x, this.camera.position.z + slideZ, PLAYER_R))
+            this.camera.position.z += slideZ;
         }
-        if (!this._collidesWithWall(this.camera.position.x, newZ, PLAYER_R)) {
-          this.camera.position.z = newZ;
+      }
+
+      if (!this.sliding) {
+        // Normal WASD movement
+        // Camera looks at -Z when yaw=0, so forward = (-sin, 0, -cos)
+        if (this.keys['KeyW']) { dx -= sin; dz -= cos; }
+        if (this.keys['KeyS']) { dx += sin; dz += cos; }
+        if (this.keys['KeyA']) { dx -= cos; dz += sin; }
+        if (this.keys['KeyD']) { dx += cos; dz -= sin; }
+        // Reduce speed when scoped
+        const moveSpeed = this.scoped ? baseSpeed * 0.5 : baseSpeed;
+
+        const len = Math.sqrt(dx * dx + dz * dz);
+        if (len > 0) {
+          const moveX = (dx / len) * moveSpeed;
+          const moveZ = (dz / len) * moveSpeed;
+          const PLAYER_R = 0.35;
+          const newX = this.camera.position.x + moveX;
+          const newZ = this.camera.position.z + moveZ;
+          if (!this._collidesWithWall(newX, this.camera.position.z, PLAYER_R)) {
+            this.camera.position.x = newX;
+          }
+          if (!this._collidesWithWall(this.camera.position.x, newZ, PLAYER_R)) {
+            this.camera.position.z = newZ;
+          }
         }
       }
 
       // Client-side vertical prediction — per-frame scaled to match 20 TPS trajectory
       const GRAVITY_C   = -0.015;  // server gravity per tick
       const JUMP_FORCE_C = 0.20;   // server jump force
-      const EYE_H = 1.5;
+      // When sliding: lower camera height, slide ends on jump
+      const EYE_H = this.sliding ? 1.0 : 1.5;
       const SCALE = 16 / 50; // ~3 client frames per server tick
 
       if (this.keys['Space'] && this.clientOnGround) {
+        if (this.sliding) this._endSlide();
         this.clientVY = JUMP_FORCE_C;
         this.clientOnGround = false;
         this.audio.playJump();
@@ -1574,7 +1776,8 @@ class FPSGame {
       }
 
       // Walk bob (only on ground while moving)
-      if (len > 0 && this.clientOnGround) {
+      const len = Math.sqrt(dx * dx + dz * dz);
+      if (len > 0 && this.clientOnGround && !this.sliding) {
         const bob = Math.sin(now * 0.008) * 0.025;
         this.camera.position.y += bob;
 

@@ -75,12 +75,14 @@ class UIManager {
 
   // ---- Update methods ----
 
-  updateHealth(health) {
-    const h = Math.max(0, Math.min(100, Math.round(health)));
+  updateHealth(health, maxHealth) {
+    const max = maxHealth || 100;
+    const h = Math.max(0, Math.min(max, Math.round(health)));
+    const pct = (h / max) * 100;
     if (this.elements.healthFill) {
-      this.elements.healthFill.style.width = h + '%';
+      this.elements.healthFill.style.width = pct + '%';
       this.elements.healthFill.style.backgroundColor =
-        h > 60 ? '#2ecc71' : h > 30 ? '#f39c12' : '#e74c3c';
+        pct > 60 ? '#2ecc71' : pct > 30 ? '#f39c12' : '#e74c3c';
     }
     if (this.elements.healthText) this.elements.healthText.textContent = h;
   }
@@ -91,8 +93,13 @@ class UIManager {
   }
 
   updateWeapon(weapon) {
+    const names = {
+      ak47: 'AK-47', m4a1: 'M4A1', awp: 'AWP SNIPER',
+      shotgun: 'SHOTGUN', smg: 'SMG', pistol: 'PISTOL',
+      deagle: 'DEAGLE', rpg: 'RPG', rifle: 'AK-47'
+    };
     if (this.elements.weaponName) {
-      this.elements.weaponName.textContent = weapon === 'rifle' ? 'AK-47' : 'PISTOL';
+      this.elements.weaponName.textContent = names[weapon] || weapon.toUpperCase();
     }
   }
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HYPERFIRE - Multiplayer Browser FPS</title>
+  <title>Krunker.io - Browser FPS</title>
   <style>
     :root {
       --bg: #1a1a1a;
@@ -821,6 +821,49 @@
       font-family: inherit; letter-spacing: 1px; transition: opacity 0.2s;
     }
     .settings-apply:hover { opacity: 0.85; }
+
+    /* ===================== CLASS SELECTOR ===================== */
+    .class-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+    .class-card {
+      background: var(--panel2); border: 2px solid transparent;
+      border-radius: 6px; padding: 8px 6px;
+      cursor: pointer; transition: all 0.18s; text-align: center;
+      user-select: none;
+    }
+    .class-card:hover { border-color: rgba(255,255,255,0.2); background: #333; }
+    .class-card.selected { border-color: var(--accent); background: rgba(240,165,0,0.1); }
+    .class-icon-big { font-size: 1.3em; margin-bottom: 2px; }
+    .class-card-name { font-size: 0.68em; font-weight: bold; letter-spacing: 0.3px; }
+    .class-card-weapon { font-size: 0.58em; color: var(--muted); margin-top: 1px; }
+
+    /* Class badge in HUD */
+    #classBadge {
+      position: fixed; bottom: 65px; left: 24px; z-index: 50;
+      background: rgba(0,0,0,0.65); border-radius: 4px;
+      padding: 3px 10px; font-size: 0.75em;
+      color: var(--accent); font-weight: bold; letter-spacing: 1px;
+      display: none; pointer-events: none;
+    }
+    #classBadge.active { display: block; }
+
+    /* Scope overlay (Hunter) */
+    #scopeOverlay {
+      position: fixed; inset: 0; z-index: 52;
+      display: none; pointer-events: none;
+    }
+    #scopeOverlay.active { display: block; }
+    #scopeOverlay canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+    /* Slide indicator */
+    #slideIndicator {
+      position: fixed; bottom: 50px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.7); border-radius: 4px;
+      padding: 3px 12px; font-size: 0.75em; font-weight: bold;
+      color: #f0a500; letter-spacing: 2px;
+      z-index: 50; display: none; pointer-events: none;
+    }
+    #slideIndicator.active { display: block; }
   </style>
 </head>
 <body>
@@ -830,8 +873,8 @@
 
 <!-- ===================== LOADING SCREEN ===================== -->
 <div id="loadingScreen">
-  <div class="loader-logo">HYPERFIRE</div>
-  <div class="loader-tagline">Multiplayer Browser FPS</div>
+  <div class="loader-logo">KRUNKER</div>
+  <div class="loader-tagline">Browser FPS</div>
   <div class="loader-bar"><div class="loader-fill"></div></div>
   <p class="loader-text">LOADING...</p>
 </div>
@@ -839,11 +882,11 @@
 <!-- ===================== USERNAME MODAL (first visit only) ===================== -->
 <div id="usernameModal">
   <div class="modal-card">
-    <div class="modal-logo-icon">🔥</div>
-    <h2>Welcome to HYPERFIRE</h2>
-    <p>Choose a callsign to identify yourself on the battlefield. This will be saved for future visits.</p>
-    <input type="text" id="usernameInput" class="modal-input" placeholder="Enter callsign" maxlength="20" autocomplete="off">
-    <button class="btn-primary" id="saveUsernameBtn">LOCK IN &amp; PLAY</button>
+    <div class="modal-logo-icon">🎯</div>
+    <h2>Welcome to Krunker</h2>
+    <p>Choose a username to identify yourself on the battlefield. This will be saved for future visits.</p>
+    <input type="text" id="usernameInput" class="modal-input" placeholder="Enter username" maxlength="20" autocomplete="off">
+    <button class="btn-primary" id="saveUsernameBtn">PLAY</button>
   </div>
 </div>
 
@@ -1073,8 +1116,8 @@
 <div id="homePage">
   <!-- Top Bar -->
   <div class="topbar">
-    <span class="topbar-logo">HYPERFIRE</span>
-    <span class="topbar-badge">v3.0</span>
+    <span class="topbar-logo">KRUNKER</span>
+    <span class="topbar-badge">v1.0</span>
     <div class="topbar-spacer"></div>
     <div class="topbar-status">
       <div class="status-dot" id="serverStatusDot"></div>
@@ -1136,27 +1179,56 @@
           <div class="rank-desc" id="homeRankDesc">Keep fighting!</div>
         </div>
       </div>
-      <div class="panel-title" style="margin-top:4px">LOADOUT</div>
-      <div style="display:flex;gap:8px">
-        <div class="stat-box" style="flex:1;padding:10px">
-          <div style="font-size:0.65em;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Primary</div>
-          <div id="homePrimary" style="font-size:0.9em;font-weight:bold;margin-top:3px">AK-47</div>
+      <div class="panel-title" style="margin-top:4px">CLASS</div>
+      <div class="class-grid" id="classGrid">
+        <div class="class-card selected" data-class="triggerman" data-weapon="ak47" data-hp="100" data-speed="1.0">
+          <div class="class-icon-big">🎯</div>
+          <div class="class-card-name">Triggerman</div>
+          <div class="class-card-weapon">AK-47</div>
         </div>
-        <div class="stat-box" style="flex:1;padding:10px">
-          <div style="font-size:0.65em;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Secondary</div>
-          <div id="homeSecondary" style="font-size:0.9em;font-weight:bold;margin-top:3px">Glock</div>
+        <div class="class-card" data-class="hunter" data-weapon="awp" data-hp="75" data-speed="0.85">
+          <div class="class-icon-big">🔭</div>
+          <div class="class-card-name">Hunter</div>
+          <div class="class-card-weapon">Sniper</div>
+        </div>
+        <div class="class-card" data-class="runngun" data-weapon="smg" data-hp="100" data-speed="1.1">
+          <div class="class-icon-big">💨</div>
+          <div class="class-card-name">Run N Gun</div>
+          <div class="class-card-weapon">SMG</div>
+        </div>
+        <div class="class-card" data-class="spraypray" data-weapon="shotgun" data-hp="100" data-speed="0.95">
+          <div class="class-icon-big">💥</div>
+          <div class="class-card-name">Spray N Pray</div>
+          <div class="class-card-weapon">Shotgun</div>
+        </div>
+        <div class="class-card" data-class="rocketeer" data-weapon="rpg" data-hp="100" data-speed="0.85">
+          <div class="class-icon-big">🚀</div>
+          <div class="class-card-name">Rocketeer</div>
+          <div class="class-card-weapon">RPG</div>
+        </div>
+        <div class="class-card" data-class="detective" data-weapon="pistol" data-hp="100" data-speed="1.1">
+          <div class="class-icon-big">🔍</div>
+          <div class="class-card-name">Detective</div>
+          <div class="class-card-weapon">Revolver</div>
+        </div>
+        <div class="class-card" data-class="agent" data-weapon="deagle" data-hp="80" data-speed="1.0">
+          <div class="class-icon-big">🕶</div>
+          <div class="class-card-name">Agent</div>
+          <div class="class-card-weapon">Deagle</div>
+        </div>
+        <div class="class-card" data-class="marksman" data-weapon="m4a1" data-hp="90" data-speed="0.95">
+          <div class="class-icon-big">🎖</div>
+          <div class="class-card-name">Marksman</div>
+          <div class="class-card-weapon">M4A1</div>
         </div>
       </div>
-      <button class="btn-secondary" id="homegGunShopBtn" style="width:100%;border-color:rgba(240,165,0,0.4);color:var(--accent)">
-        🔫 GUN SHOP
-      </button>
     </div>
 
     <!-- CENTER: Logo + Play Buttons -->
     <div class="home-center">
       <div class="game-logo">
-        <h1>HYPERFIRE</h1>
-        <div class="logo-sub">Multiplayer Browser FPS</div>
+        <h1>KRUNKER</h1>
+        <div class="logo-sub">Browser FPS</div>
       </div>
 
       <div class="play-section">
@@ -1226,8 +1298,10 @@
         <div class="control-row"><span class="key">WASD</span><span class="ctrl-desc">Move</span></div>
         <div class="control-row"><span class="key">Mouse</span><span class="ctrl-desc">Aim</span></div>
         <div class="control-row"><span class="key">LMB</span><span class="ctrl-desc">Shoot</span></div>
+        <div class="control-row"><span class="key">RMB</span><span class="ctrl-desc">Scope (Hunter)</span></div>
         <div class="control-row"><span class="key">R</span><span class="ctrl-desc">Reload</span></div>
         <div class="control-row"><span class="key">Space</span><span class="ctrl-desc">Jump</span></div>
+        <div class="control-row"><span class="key">Ctrl</span><span class="ctrl-desc">Slide</span></div>
         <div class="control-row"><span class="key">Tab</span><span class="ctrl-desc">Scoreboard</span></div>
       </div>
     </div>
@@ -1236,7 +1310,7 @@
   <!-- Bottom bar -->
   <div class="bottombar">
     <div class="bottom-item"><div class="bottom-dot"></div><span id="onlineCount">0 players online</span></div>
-    <div class="bottom-item">HYPERFIRE v3.0</div>
+    <div class="bottom-item">Krunker v1.0</div>
     <div class="bottom-item" id="lastSavedTime">Auto-save: never</div>
   </div>
 </div>
@@ -1253,7 +1327,7 @@
 
 <!-- ===================== PAUSE OVERLAY ===================== -->
 <div id="pauseOverlay">
-  <div class="pause-logo">HYPERFIRE</div>
+  <div class="pause-logo">KRUNKER</div>
   <div class="pause-title">PAUSED</div>
   <div class="pause-room-info" id="pauseRoomInfo"></div>
   <div class="pause-btns">
@@ -1267,6 +1341,12 @@
 <div id="damageFlash" class="hud"></div>
 <div id="crosshair" class="hud"></div>
 <div id="crosshairDot" class="hud"></div>
+<!-- Scope overlay (Hunter) -->
+<div id="scopeOverlay"><canvas id="scopeCanvas"></canvas></div>
+<!-- Class badge -->
+<div id="classBadge" class="hud">TRIGGERMAN</div>
+<!-- Slide indicator -->
+<div id="slideIndicator" class="hud">SLIDING</div>
 
 <div id="scoreHeader" class="hud">
   <div class="score-box score-ct">CT <span id="ctScore">0</span></div>
@@ -1885,14 +1965,20 @@
 
   // ===================== GAME INIT =====================
   function startGame(options = {}) {
-    showConnectingScreen('Connecting to HYPERFIRE...');
+    showConnectingScreen('Connecting to Krunker...');
     hideHomePage();
     closeAllModals();
     sessionKills = 0; sessionDeaths = 0; sessionScore = 0; killStreak = 0;
-    // Pass equipped weapons so server knows what to give player
+    // Use selected Krunker class to determine weapon
+    const selectedClassCard = document.querySelector('.class-card.selected');
+    const selectedClass = selectedClassCard ? selectedClassCard.dataset.class : 'triggerman';
+    const classWeapon   = selectedClassCard ? selectedClassCard.dataset.weapon : 'ak47';
+    const classSpeed    = selectedClassCard ? parseFloat(selectedClassCard.dataset.speed) : 1.0;
+    window.PLAYER_CLASS = selectedClass;
+    window.PLAYER_CLASS_SPEED = classSpeed;
     window.PLAYER_WEAPONS = {
-      primary: stats.equippedPrimary || 'ak47',
-      secondary: stats.equippedSecondary || 'pistol'
+      primary: classWeapon,
+      secondary: 'pistol'
     };
 
     if (gameInstance) {
@@ -2078,6 +2164,14 @@
   const _origFPSConnect = FPSGame.prototype.init;
 
   // ===================== EVENT LISTENERS =====================
+
+  // ===================== CLASS SELECTION =====================
+  document.querySelectorAll('.class-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.class-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+    });
+  });
 
   // Username modal
   document.getElementById('saveUsernameBtn').addEventListener('click', confirmUsername);

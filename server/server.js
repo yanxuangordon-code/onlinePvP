@@ -106,33 +106,33 @@ io.on('connection', (socket) => {
   });
 
   // Quick play: join best available room
-  socket.on('quickPlay', ({ name, weapons }) => {
+  socket.on('quickPlay', ({ name, weapons, playerClass }) => {
     const room = roomManager.getBestRoom();
-    joinRoom(socket, room, name, weapons);
+    joinRoom(socket, room, name, weapons, playerClass);
   });
 
   // Join specific room
-  socket.on('joinRoom', ({ name, roomId, weapons }) => {
+  socket.on('joinRoom', ({ name, roomId, weapons, playerClass }) => {
     const room = roomManager.getRoom(roomId);
     if (!room) { socket.emit('joinError', { message: 'Room not found' }); return; }
     if (room.isFull()) { socket.emit('joinError', { message: 'Room is full' }); return; }
-    joinRoom(socket, room, name, weapons);
+    joinRoom(socket, room, name, weapons, playerClass);
   });
 
   // Legacy 'join' — join best room
   socket.on('join', ({ name, weapons }) => {
     const room = roomManager.getBestRoom();
-    joinRoom(socket, room, name, weapons);
+    joinRoom(socket, room, name, weapons, 'triggerman');
   });
 
-  function joinRoom(sock, room, rawName, weapons) {
+  function joinRoom(sock, room, rawName, weapons, playerClass) {
     if (currentRoomId) leaveRoom(sock, currentRoomId);
 
     const playerName = (rawName || 'Player').slice(0, 20).replace(/[^a-zA-Z0-9 _-]/g, '');
     const team = assignTeam(room.gameLoop, room.mode);
     const primary = weapons && weapons.primary;
     const secondary = weapons && weapons.secondary;
-    const player = room.gameLoop.addPlayer(sock.id, playerName, team, primary, secondary);
+    const player = room.gameLoop.addPlayer(sock.id, playerName, team, primary, secondary, playerClass || 'triggerman');
 
     sock.join(room.id);
     currentRoomId = room.id;
@@ -145,6 +145,8 @@ io.on('connection', (socket) => {
       z: player.z,
       yaw: player.yaw,
       health: player.health,
+      maxHealth: player.maxHealth || 100,
+      playerClass: player.playerClass || 'triggerman',
       primaryWeapon: player.primaryWeapon,
       secondaryWeapon: player.secondaryWeapon,
       ammo: player.ammo.ammo,

@@ -145,6 +145,18 @@ const MAP_DATA = {
   },
 };
 
+// Krunker class definitions
+const KRUNKER_CLASSES = {
+  triggerman: { hp: 100, speed: 1.00 },
+  hunter:     { hp: 75,  speed: 0.85 },
+  runngun:    { hp: 100, speed: 1.10 },
+  spraypray:  { hp: 100, speed: 0.95 },
+  rocketeer:  { hp: 100, speed: 0.85 },
+  detective:  { hp: 100, speed: 1.10 },
+  agent:      { hp: 80,  speed: 1.00 },
+  marksman:   { hp: 90,  speed: 0.95 },
+};
+
 // CTF flag base positions
 const CTF_FLAG_BASES = {
   ct: { x: 0, z: -36 },
@@ -181,22 +193,26 @@ function getSpawnPoint(team, usedSpawns) {
   return { x: sp.x, y: PLAYER_HEIGHT / 2, z: sp.z };
 }
 
-function createPlayer(id, name, team, primaryWeapon, secondaryWeapon) {
+function createPlayer(id, name, team, primaryWeapon, secondaryWeapon, playerClass) {
   const pw = (primaryWeapon && WEAPONS[primaryWeapon]) ? primaryWeapon : 'ak47';
   const sw = (secondaryWeapon && WEAPONS[secondaryWeapon]) ? secondaryWeapon : 'pistol';
+  const cls = KRUNKER_CLASSES[playerClass] || KRUNKER_CLASSES.triggerman;
   const usedSpawns = new Set();
   const pos = getSpawnPoint(team, usedSpawns);
   return {
     id,
     name,
     team,
+    playerClass: playerClass || 'triggerman',
     x: pos.x,
     y: pos.y,
     z: pos.z,
     vy: 0,
     yaw: team === 'ct' ? Math.PI : 0,
     pitch: 0,
-    health: 100,
+    health: cls.hp,
+    maxHealth: cls.hp,
+    speedMult: cls.speed,
     alive: true,
     weapon: pw,
     primaryWeapon: pw,
@@ -290,8 +306,8 @@ class GameLoop {
     return { x: sp.x, y: PLAYER_HEIGHT / 2, z: sp.z };
   }
 
-  addPlayer(id, name, team, primaryWeapon, secondaryWeapon) {
-    const player = createPlayer(id, name, team, primaryWeapon, secondaryWeapon);
+  addPlayer(id, name, team, primaryWeapon, secondaryWeapon, playerClass) {
+    const player = createPlayer(id, name, team, primaryWeapon, secondaryWeapon, playerClass);
     if (this.mode === 'doom') {
       player.weapon = 'rpg';
       player.primaryWeapon = 'rpg';
@@ -547,7 +563,7 @@ class GameLoop {
       victim.y = pos.y;
       victim.z = pos.z;
       victim.vy = 0;
-      victim.health = 100;
+      victim.health = victim.maxHealth || 100;
       victim.alive = true;
       victim.ammo = { ...WEAPONS[victim.primaryWeapon || 'ak47'] };
       victim.pistolAmmo = { ...WEAPONS[victim.secondaryWeapon || 'pistol'] };
@@ -702,8 +718,9 @@ class GameLoop {
 
       const moveLen = Math.sqrt(dx * dx + dz * dz);
       if (moveLen > 0) {
-        dx = (dx / moveLen) * PLAYER_SPEED;
-        dz = (dz / moveLen) * PLAYER_SPEED;
+        const spd = PLAYER_SPEED * (player.speedMult || 1.0);
+        dx = (dx / moveLen) * spd;
+        dz = (dz / moveLen) * spd;
       }
 
       // Apply gravity
