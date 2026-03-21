@@ -4,7 +4,7 @@
 const TICK_RATE = 20; // 20 ticks per second
 const PLAYER_SPEED = 0.15;
 const GRAVITY = -0.015;
-const JUMP_FORCE = 0.25;
+const JUMP_FORCE = 0.35;
 const PLAYER_HEIGHT = 1.8;
 const PLAYER_RADIUS = 0.4;
 const RESPAWN_TIME = 3000; // ms
@@ -17,6 +17,7 @@ const WEAPONS = {
   smg:     { damage: 16,  fireRate: 55,   ammo: 25,  maxAmmo: 100, range: 120, spread: 0.05,  reloadTime: 1500, automatic: true,  pellets: 1 },
   pistol:  { damage: 35,  fireRate: 400,  ammo: 12,  maxAmmo: 36,  range: 150, spread: 0.04,  reloadTime: 1500, automatic: false, pellets: 1 },
   deagle:  { damage: 55,  fireRate: 500,  ammo: 7,   maxAmmo: 28,  range: 180, spread: 0.03,  reloadTime: 1800, automatic: false, pellets: 1 },
+  rpg:     { damage: 80,  fireRate: 1200, ammo: 5,   maxAmmo: 15,  range: 300, spread: 0,     reloadTime: 3000, automatic: false, pellets: 1, splash: 5 },
   // legacy alias
   rifle:   { damage: 25,  fireRate: 100,  ammo: 30,  maxAmmo: 90,  range: 200, spread: 0.02,  reloadTime: 2000, automatic: true,  pellets: 1 },
 };
@@ -82,6 +83,66 @@ const SPAWN_POINTS = {
     { x: -5, z: 35 },
     { x: 5, z: 35 },
   ]
+};
+
+const MAP_DATA = {
+  arena: {
+    bounds: { minX: -50, maxX: 50, minZ: -50, maxZ: 50 },
+    walls: [
+      { x: 0, z: 0, w: 6, d: 6 },
+      { x: -15, z: -20, w: 8, d: 0.5 }, { x: 15, z: -20, w: 8, d: 0.5 },
+      { x: -8, z: -30, w: 0.5, d: 8 }, { x: 8, z: -30, w: 0.5, d: 8 },
+      { x: -15, z: 20, w: 8, d: 0.5 }, { x: 15, z: 20, w: 8, d: 0.5 },
+      { x: -8, z: 30, w: 0.5, d: 8 }, { x: 8, z: 30, w: 0.5, d: 8 },
+      { x: -10, z: 0, w: 3, d: 3 }, { x: 10, z: 0, w: 3, d: 3 },
+      { x: 0, z: -12, w: 3, d: 3 }, { x: 0, z: 12, w: 3, d: 3 },
+      { x: -25, z: 0, w: 0.5, d: 20 }, { x: 25, z: 0, w: 0.5, d: 20 },
+      { x: -5, z: -5, w: 0.4, d: 4 }, { x: 5, z: -5, w: 0.4, d: 4 },
+      { x: -5, z: 5, w: 0.4, d: 4 }, { x: 5, z: 5, w: 0.4, d: 4 },
+      { x: -18, z: -10, w: 1.5, d: 1.5 }, { x: -18, z: 10, w: 1.5, d: 1.5 },
+      { x: 18, z: -10, w: 1.5, d: 1.5 }, { x: 18, z: 10, w: 1.5, d: 1.5 },
+      { x: 0, z: -45.5, w: 20, d: 0.6 }, { x: 0, z: 45.5, w: 20, d: 0.6 },
+    ],
+    spawns: {
+      ct: [{ x: -5, z: -38 }, { x: 0, z: -38 }, { x: 5, z: -38 }, { x: -5, z: -35 }, { x: 5, z: -35 }],
+      terrorist: [{ x: -5, z: 38 }, { x: 0, z: 38 }, { x: 5, z: 38 }, { x: -5, z: 35 }, { x: 5, z: 35 }],
+    }
+  },
+  factory: {
+    bounds: { minX: -55, maxX: 55, minZ: -55, maxZ: 55 },
+    walls: [
+      { x: -18, z: -18, w: 10, d: 6 }, { x: 18, z: -18, w: 10, d: 6 },
+      { x: -18, z: 18, w: 10, d: 6 }, { x: 18, z: 18, w: 10, d: 6 },
+      { x: 0, z: 0, w: 5, d: 5 },
+      { x: -10, z: 0, w: 1, d: 14 }, { x: 10, z: 0, w: 1, d: 14 },
+      { x: -30, z: -8, w: 3, d: 3 }, { x: -30, z: 8, w: 3, d: 3 },
+      { x: 30, z: -8, w: 3, d: 3 }, { x: 30, z: 8, w: 3, d: 3 },
+      { x: -5, z: -28, w: 8, d: 0.5 }, { x: 5, z: -28, w: 8, d: 0.5 },
+      { x: -5, z: 28, w: 8, d: 0.5 }, { x: 5, z: 28, w: 8, d: 0.5 },
+      { x: 0, z: -50, w: 30, d: 0.8 }, { x: 0, z: 50, w: 30, d: 0.8 },
+    ],
+    spawns: {
+      ct: [{ x: -5, z: -44 }, { x: 0, z: -44 }, { x: 5, z: -44 }, { x: -8, z: -40 }, { x: 8, z: -40 }],
+      terrorist: [{ x: -5, z: 44 }, { x: 0, z: 44 }, { x: 5, z: 44 }, { x: -8, z: 40 }, { x: 8, z: 40 }],
+    }
+  },
+  blockade: {
+    bounds: { minX: -50, maxX: 50, minZ: -50, maxZ: 50 },
+    walls: [
+      { x: -20, z: 0, w: 1, d: 80 }, { x: 20, z: 0, w: 1, d: 80 },
+      { x: -10, z: -28, w: 12, d: 0.8 }, { x: 10, z: -28, w: 12, d: 0.8 },
+      { x: -10, z: 28, w: 12, d: 0.8 }, { x: 10, z: 28, w: 12, d: 0.8 },
+      { x: -7, z: -12, w: 2.5, d: 5 }, { x: 7, z: 5, w: 2.5, d: 5 },
+      { x: -5, z: 18, w: 2.5, d: 5 }, { x: 8, z: -20, w: 2.5, d: 5 },
+      { x: 0, z: 0, w: 9, d: 0.5 },
+      { x: -5, z: 0, w: 0.5, d: 3 }, { x: 5, z: 0, w: 0.5, d: 3 },
+      { x: 0, z: -46, w: 22, d: 0.5 }, { x: 0, z: 46, w: 22, d: 0.5 },
+    ],
+    spawns: {
+      ct: [{ x: -5, z: -40 }, { x: 0, z: -40 }, { x: 5, z: -40 }, { x: -8, z: -37 }, { x: 8, z: -37 }],
+      terrorist: [{ x: -5, z: 40 }, { x: 0, z: 40 }, { x: 5, z: 40 }, { x: -8, z: 37 }, { x: 8, z: 37 }],
+    }
+  },
 };
 
 // CTF flag base positions
@@ -161,10 +222,15 @@ function createPlayer(id, name, team, primaryWeapon, secondaryWeapon) {
 let _botCounter = 0;
 
 class GameLoop {
-  constructor(io, roomId, mode) {
+  constructor(io, roomId, mode, map) {
     this.io = io;
     this.roomId = roomId || 'default';
-    this.mode = mode || 'tdm'; // 'tdm', 'ffa', 'ctf', 'pvc'
+    this.mode = mode || 'tdm'; // 'tdm', 'ffa', 'ctf', 'pvc', 'doom'
+    this.map = map || 'arena';
+    const mapData = MAP_DATA[this.map] || MAP_DATA.arena;
+    this.walls = mapData.walls;
+    this.mapBounds = mapData.bounds;
+    this.spawnPoints = mapData.spawns;
     this.players = new Map();
     this.killFeed = [];
     this.scores = { ct: 0, terrorist: 0 };
@@ -197,8 +263,40 @@ class GameLoop {
     if (this.interval) clearInterval(this.interval);
   }
 
+  _collides(x, z, r) {
+    const b = this.mapBounds;
+    if (x - r < b.minX || x + r > b.maxX) return true;
+    if (z - r < b.minZ || z + r > b.maxZ) return true;
+    for (const wall of this.walls) {
+      const hw = wall.w / 2 + r, hd = wall.d / 2 + r;
+      if (x > wall.x - hw && x < wall.x + hw && z > wall.z - hd && z < wall.z + hd) return true;
+    }
+    return false;
+  }
+
+  _safeSpawnPoint(team) {
+    const spawns = (this.spawnPoints || SPAWN_POINTS)[team] || (this.spawnPoints || SPAWN_POINTS).ct;
+    let best = null, bestDist = -1;
+    for (const sp of spawns) {
+      let minEnemyDist = Infinity;
+      for (const [, p] of this.players) {
+        if (!p.alive || p.team === team) continue;
+        const dx = p.x - sp.x, dz = p.z - sp.z;
+        minEnemyDist = Math.min(minEnemyDist, Math.sqrt(dx*dx + dz*dz));
+      }
+      if (minEnemyDist > bestDist) { bestDist = minEnemyDist; best = sp; }
+    }
+    const sp = best || spawns[0];
+    return { x: sp.x, y: PLAYER_HEIGHT / 2, z: sp.z };
+  }
+
   addPlayer(id, name, team, primaryWeapon, secondaryWeapon) {
     const player = createPlayer(id, name, team, primaryWeapon, secondaryWeapon);
+    if (this.mode === 'doom') {
+      player.weapon = 'rpg';
+      player.primaryWeapon = 'rpg';
+      player.ammo = { ...WEAPONS.rpg };
+    }
     this.players.set(id, player);
     return player;
   }
@@ -212,6 +310,11 @@ class GameLoop {
     bot.isBot = true;
     bot._botDirTimer = 0;
     bot._botShootCooldown = Math.floor(Math.random() * 10);
+    if (this.mode === 'doom') {
+      bot.weapon = 'rpg';
+      bot.primaryWeapon = 'rpg';
+      bot.ammo = { ...WEAPONS.rpg };
+    }
     this.players.set(id, bot);
     return bot;
   }
@@ -315,8 +418,40 @@ class GameLoop {
       }
 
       this._broadcast('hitConfirm', { shooterId: id, targetId: hit.id, victimId: hit.id, victimHealth: Math.max(0, hit.health), hitPoint, headshot: !!headshot });
+      if (weapon.splash) {
+        for (const [tid, target] of this.players) {
+          if (!target.alive || target === hit) continue;
+          const dx = target.x - hitPoint.x;
+          const dy = target.y - hitPoint.y;
+          const dz = target.z - hitPoint.z;
+          const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+          if (dist < weapon.splash) {
+            const splashDmg = Math.round(weapon.damage * (1 - dist / weapon.splash));
+            target.health -= splashDmg;
+            if (!target.isBot) this._send(target.id, 'damaged', { health: Math.max(0, target.health), attackerId: id });
+            if (target.health <= 0) this.killPlayer(target, player);
+          }
+        }
+      }
     } else {
       this._broadcast('bulletImpact', { shooterId: id, hitPoint, dir });
+      if (weapon.splash) {
+        for (const [tid, target] of this.players) {
+          if (!target.alive) continue;
+          const dx = target.x - hitPoint.x;
+          const dy = target.y - hitPoint.y;
+          const dz = target.z - hitPoint.z;
+          const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+          if (dist < weapon.splash) {
+            const splashDmg = Math.round(weapon.damage * (1 - dist / weapon.splash));
+            if (splashDmg > 0) {
+              target.health -= splashDmg;
+              if (!target.isBot) this._send(target.id, 'damaged', { health: Math.max(0, target.health), attackerId: id });
+              if (target.health <= 0) this.killPlayer(target, player);
+            }
+          }
+        }
+      }
     }
     } // end pellets loop
 
@@ -407,8 +542,7 @@ class GameLoop {
     // Schedule respawn
     setTimeout(() => {
       if (!this.players.has(victim.id)) return;
-      const usedSpawns = new Set();
-      const pos = getSpawnPoint(victim.team, usedSpawns);
+      const pos = this._safeSpawnPoint(victim.team);
       victim.x = pos.x;
       victim.y = pos.y;
       victim.z = pos.z;
@@ -442,7 +576,7 @@ class GameLoop {
     let nearest = null, minDist = Infinity;
     for (const [id, p] of this.players) {
       if (id === bot.id || !p.alive) continue;
-      const isEnemy = this.mode === 'ffa' ? true : p.team !== bot.team;
+      const isEnemy = (this.mode === 'ffa' || this.mode === 'pvc') ? true : p.team !== bot.team;
       if (!isEnemy) continue;
       const dx = p.x - bot.x, dz = p.z - bot.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
@@ -587,12 +721,12 @@ class GameLoop {
 
       // Try X movement
       const newX = player.x + dx;
-      if (!collidesWithWall(newX, player.z, PLAYER_RADIUS)) {
+      if (!this._collides(newX, player.z, PLAYER_RADIUS)) {
         player.x = newX;
       }
       // Try Z movement
       const newZ = player.z + dz;
-      if (!collidesWithWall(player.x, newZ, PLAYER_RADIUS)) {
+      if (!this._collides(player.x, newZ, PLAYER_RADIUS)) {
         player.z = newZ;
       }
     }

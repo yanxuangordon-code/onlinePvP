@@ -32,6 +32,7 @@ class FPSGame {
       smg:     { ammo: 25, maxAmmo: 100 },
       pistol:  { ammo: 12, maxAmmo: 36 },
       deagle:  { ammo: 7,  maxAmmo: 28 },
+      rpg:     { ammo: 5,  maxAmmo: 15 },
     };
     this.kills = 0;
 
@@ -48,8 +49,8 @@ class FPSGame {
     this.reloading = false;
 
     // Weapon fire rates (ms between shots)
-    this.WEAPON_FIRE_RATE = { ak47: 100, m4a1: 80, awp: 1500, shotgun: 900, smg: 55, pistol: 400, deagle: 500, rifle: 100 };
-    this.WEAPON_AUTO = { ak47: true, m4a1: true, smg: true, awp: false, shotgun: false, pistol: false, deagle: false, rifle: true };
+    this.WEAPON_FIRE_RATE = { ak47: 100, m4a1: 80, awp: 1500, shotgun: 900, smg: 55, pistol: 400, deagle: 500, rifle: 100, rpg: 1200 };
+    this.WEAPON_AUTO = { ak47: true, m4a1: true, smg: true, awp: false, shotgun: false, pistol: false, deagle: false, rifle: true, rpg: false };
 
     // Map constants
     this.MAP_SIZE = 50;
@@ -132,7 +133,9 @@ class FPSGame {
       pistol:  { x: 0.15, y: -0.28, z: -0.3  },
       deagle:  { x: 0.15, y: -0.28, z: -0.3  },
       rifle:   { x: 0.2,  y: -0.28, z: -0.38 },
+      rpg:     { x: 0.22, y: -0.25, z: -0.5  },
     };
+    this.currentMap = 'arena';
 
     // Footstep
     this.footstepTimer = 0;
@@ -393,6 +396,17 @@ class FPSGame {
     ]);
     deagle.position.set(0.15, -0.28, -0.3); deagle.visible = false; this.camera.add(deagle);
     this.weaponModels.deagle = deagle;
+
+    // --- RPG ---
+    const rpg = new THREE.Group();
+    addParts(rpg, [
+      [box(0.12, 0.12, 0.7, dark), 0, 0, 0],
+      [box(0.08, 0.06, 0.3, metal), 0, -0.06, 0.1],
+      [box(0.10, 0.08, 0.08, blk), 0, 0.06, -0.3],
+      [box(0.10, 0.10, 0.12, tan), 0, 0, -0.42],
+    ]);
+    rpg.position.set(0.22, -0.25, -0.5); rpg.visible = false; this.camera.add(rpg);
+    this.weaponModels.rpg = rpg;
 
     // Aliases for backward compat
     this.rifleModel  = this.weaponModels.ak47;
@@ -1047,23 +1061,20 @@ class FPSGame {
   }
 
   _recoilAnim() {
+    if (this._recoilInterval) clearInterval(this._recoilInterval);
     const model = this.weaponModels[this.weapon] || this.rifleModel;
-    const origY = model.position.y;
-    const origZ = model.position.z;
-    model.position.y += 0.03;
-    model.position.z += 0.04;
-    model.rotation.x -= 0.08;
+    if (!model) return;
+    const base = this.weaponBasePos[this.weapon] || { x: 0.2, y: -0.28, z: -0.38 };
     let t = 0;
-    const anim = setInterval(() => {
-      t += 0.15;
-      model.position.y = origY + 0.03 * (1 - t);
-      model.position.z = origZ + 0.04 * (1 - t);
-      model.rotation.x += 0.08 * 0.15;
+    this._recoilInterval = setInterval(() => {
+      t += 0.18;
+      model.position.z = base.z + 0.04 * Math.max(0, 1 - t);
+      model.rotation.x = -0.08 * Math.max(0, 1 - t);
       if (t >= 1) {
-        model.position.y = origY;
-        model.position.z = origZ;
+        model.position.z = base.z;
         model.rotation.x = 0;
-        clearInterval(anim);
+        clearInterval(this._recoilInterval);
+        this._recoilInterval = null;
       }
     }, 16);
   }
@@ -1143,33 +1154,46 @@ class FPSGame {
   _showEnemyHealthBar(victimId, health) {
     const rp = this.remotePlayers.get(victimId);
     if (!rp) return;
-    // Remove existing bar if any
     if (rp.healthBarMesh) { rp.mesh.remove(rp.healthBarMesh); rp.healthBarMesh = null; }
 
     const canvas = document.createElement('canvas');
-    canvas.width = 128; canvas.height = 20;
+    canvas.width = 200; canvas.height = 48;
     const ctx = canvas.getContext('2d');
-    // Background
-    ctx.fillStyle = 'rgba(0,0,0,0.6)';
-    ctx.roundRect(2, 4, 124, 12, 4);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.85)';
+    ctx.roundRect(2, 2, 196, 44, 8);
     ctx.fill();
-    // Bar fill — color by health
-    const pct = Math.max(0, health / 100);
-    ctx.fillStyle = pct > 0.5 ? `rgb(${Math.round(255*(1-pct)*2)},220,40)` : `rgb(220,${Math.round(220*pct*2)},40)`;
-    if (pct > 0) { ctx.roundRect(3, 5, Math.round(122 * pct), 10, 3); ctx.fill(); }
+
+    const pct = Math.max(0, Math.min(1, health / 100));
+    const r = Math.round(255 * (1 - pct));
+    const g = Math.round(220 * pct);
+    ctx.fillStyle = `rgb(${r},${g},40)`;
+    ctx.font = 'bold 22px Arial';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${Math.ceil(health)}`, 194, 24);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.roundRect(6, 30, 168, 10, 4);
+    ctx.fill();
+
+    if (pct > 0) {
+      ctx.fillStyle = `rgb(${r},${g},40)`;
+      ctx.roundRect(6, 30, Math.round(168 * pct), 10, 4);
+      ctx.fill();
+    }
 
     const tex = new THREE.CanvasTexture(canvas);
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true }));
-    sprite.scale.set(1.2, 0.19, 1);
-    sprite.position.set(0, 2.35, 0);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+    sprite.scale.set(2.0, 0.48, 1);
+    sprite.position.set(0, 2.5, 0);
     rp.mesh.add(sprite);
     rp.healthBarMesh = sprite;
 
-    // Auto-hide after 2s
     clearTimeout(rp._hbTimer);
     rp._hbTimer = setTimeout(() => {
       if (rp.healthBarMesh) { rp.mesh.remove(rp.healthBarMesh); rp.healthBarMesh = null; }
-    }, 2000);
+    }, 2500);
   }
 
   _spawnCasing(weaponType) {
@@ -1461,6 +1485,8 @@ class FPSGame {
       this.localTeam = data.team;
       this.localMode = data.mode || 'tdm';
       this.ui.localPlayerId = data.id;
+      this.currentMap = data.map || 'arena';
+      this._syncClientWalls(data.map);
 
       this.camera.position.set(data.x, data.y + 0.6, data.z);
       this.yaw = data.yaw || 0;
@@ -1562,7 +1588,7 @@ class FPSGame {
       this.camera.position.set(data.x, data.y + 0.6, data.z);
       // Reset ammo from weapon defaults
       const WFR = this.WEAPON_FIRE_RATE;
-      const AMMO_DEFAULTS = { ak47:{ammo:30,maxAmmo:90}, m4a1:{ammo:30,maxAmmo:90}, awp:{ammo:5,maxAmmo:20}, shotgun:{ammo:8,maxAmmo:32}, smg:{ammo:25,maxAmmo:100}, pistol:{ammo:12,maxAmmo:36}, deagle:{ammo:7,maxAmmo:28} };
+      const AMMO_DEFAULTS = { ak47:{ammo:30,maxAmmo:90}, m4a1:{ammo:30,maxAmmo:90}, awp:{ammo:5,maxAmmo:20}, shotgun:{ammo:8,maxAmmo:32}, smg:{ammo:25,maxAmmo:100}, pistol:{ammo:12,maxAmmo:36}, deagle:{ammo:7,maxAmmo:28}, rpg:{ammo:5,maxAmmo:15} };
       this.ammo[this.primaryWeapon] = { ...(AMMO_DEFAULTS[this.primaryWeapon] || AMMO_DEFAULTS.ak47) };
       this.ammo[this.secondaryWeapon] = { ...(AMMO_DEFAULTS[this.secondaryWeapon] || AMMO_DEFAULTS.pistol) };
       this.weapon = this.primaryWeapon;
@@ -1619,10 +1645,14 @@ class FPSGame {
     this.socket.on('reloadStart', (data) => {
       this.reloading = true;
       this.audio.playReloadStart();
+      this._reloadAnimStart();
       this.ui.showReloading(data.duration);
     });
 
     this.socket.on('reloadEnd', (data) => {
+      if (this._reloadAnimInterval) { clearInterval(this._reloadAnimInterval); this._reloadAnimInterval = null; }
+      const model = this.weaponModels[this.weapon];
+      if (model) { const base = this.weaponBasePos[this.weapon] || { x: 0.2, y: -0.28, z: -0.38 }; model.rotation.x = 0; model.position.y = base.y; }
       this.reloading = false;
       this.audio.playReloadEnd();
       this.ui.hideReloading();
@@ -1636,6 +1666,57 @@ class FPSGame {
     this.socket.on('connect_error', () => {
       if (this.onConnectionError) this.onConnectionError();
     });
+  }
+
+  _reloadAnimStart() {
+    const model = this.weaponModels[this.weapon];
+    if (!model) return;
+    if (this._reloadAnimInterval) clearInterval(this._reloadAnimInterval);
+    const base = this.weaponBasePos[this.weapon] || { x: 0.2, y: -0.28, z: -0.38 };
+    let phase = 0;
+    let t = 0;
+    this._reloadAnimInterval = setInterval(() => {
+      t += 0.05;
+      if (phase === 0) {
+        model.rotation.x = t * 0.6;
+        model.position.y = base.y - t * 0.12;
+        if (t >= 1) { t = 0; phase = 1; }
+      } else if (phase === 1) {
+        model.rotation.x = 0.6;
+        model.position.y = base.y - 0.12;
+        if (t >= 10) { t = 0; phase = 2; }
+      } else {
+        model.rotation.x = 0.6 * (1 - t);
+        model.position.y = base.y - 0.12 * (1 - t);
+        if (t >= 1) {
+          model.rotation.x = 0;
+          model.position.y = base.y;
+          clearInterval(this._reloadAnimInterval);
+          this._reloadAnimInterval = null;
+        }
+      }
+    }, 16);
+  }
+
+  _syncClientWalls(mapName) {
+    const FACTORY_WALLS = [
+      { x: -18, z: -18, w: 10, d: 6 }, { x: 18, z: -18, w: 10, d: 6 },
+      { x: -18, z: 18, w: 10, d: 6 }, { x: 18, z: 18, w: 10, d: 6 },
+      { x: 0, z: 0, w: 5, d: 5 },
+      { x: -10, z: 0, w: 1, d: 14 }, { x: 10, z: 0, w: 1, d: 14 },
+      { x: -30, z: -8, w: 3, d: 3 }, { x: -30, z: 8, w: 3, d: 3 },
+      { x: 30, z: -8, w: 3, d: 3 }, { x: 30, z: 8, w: 3, d: 3 },
+    ];
+    const BLOCKADE_WALLS = [
+      { x: -20, z: 0, w: 1, d: 80 }, { x: 20, z: 0, w: 1, d: 80 },
+      { x: -10, z: -28, w: 12, d: 0.8 }, { x: 10, z: -28, w: 12, d: 0.8 },
+      { x: -10, z: 28, w: 12, d: 0.8 }, { x: 10, z: 28, w: 12, d: 0.8 },
+      { x: -7, z: -12, w: 2.5, d: 5 }, { x: 7, z: 5, w: 2.5, d: 5 },
+      { x: -5, z: 18, w: 2.5, d: 5 }, { x: 8, z: -20, w: 2.5, d: 5 },
+      { x: 0, z: 0, w: 9, d: 0.5 },
+    ];
+    if (mapName === 'factory') this.CLIENT_WALLS = FACTORY_WALLS;
+    else if (mapName === 'blockade') this.CLIENT_WALLS = BLOCKADE_WALLS;
   }
 
   // ---- Game Loop ----
@@ -1772,7 +1853,7 @@ class FPSGame {
 
       // Client-side vertical prediction — fixed 20 TPS to match server exactly
       const GRAVITY_C = -0.015;
-      const JUMP_FORCE_C = 0.25;
+      const JUMP_FORCE_C = 0.35;
       const EYE_H = 1.5;
       const PHYS_STEP = 50; // ms (20 TPS)
 

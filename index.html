@@ -397,6 +397,7 @@
     .room-mode-badge.ffa { background: rgba(231,76,60,0.2); }
     .room-mode-badge.ctf { background: rgba(46,204,113,0.2); }
     .room-mode-badge.pvc { background: rgba(155,89,182,0.25); }
+    .room-mode-badge.doom { background: rgba(231,76,60,0.35); }
     .room-info { flex: 1; }
     .room-name { font-weight: bold; font-size: 0.95em; }
     .room-meta { font-size: 0.72em; color: var(--muted); margin-top: 3px; }
@@ -920,7 +921,23 @@
               <span class="mode-desc">Train against AI enemies</span>
             </span>
           </label>
+          <label class="mode-option" data-mode="doom">
+            <input type="radio" name="mode" value="doom">
+            <span class="mode-icon">💥</span>
+            <span class="mode-details">
+              <span class="mode-name">DOOM Mode</span>
+              <span class="mode-desc">Everyone has RPG — chaos</span>
+            </span>
+          </label>
         </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Map</label>
+        <select id="mapSelect" class="form-input" style="padding:10px 16px;cursor:pointer;">
+          <option value="arena">FPS Arena</option>
+          <option value="factory">Factory</option>
+          <option value="blockade">Blockade</option>
+        </select>
       </div>
       <div class="form-group" id="botCountGroup" style="display:none">
         <label class="form-label">Bot Count</label>
@@ -2040,7 +2057,7 @@
       opt.classList.add('selected');
       opt.querySelector('input').checked = true;
       const mode = opt.dataset.mode;
-      document.getElementById('botCountGroup').style.display = mode === 'pvc' ? 'block' : 'none';
+      document.getElementById('botCountGroup').style.display = (mode === 'pvc' || mode === 'doom') ? 'block' : 'none';
     });
   });
 
@@ -2058,6 +2075,7 @@
   document.getElementById('createAndJoinBtn').addEventListener('click', async () => {
     const name = document.getElementById('newServerName').value.trim() || `${stats.playerName || 'Player'}'s Server`;
     const mode = document.querySelector('.mode-option.selected')?.dataset.mode || 'tdm';
+    const map = document.getElementById('mapSelect')?.value || 'arena';
     const maxPlayers = parseInt(document.getElementById('maxPlayersSlider').value) || 12;
     const botCount = parseInt(document.getElementById('botCountSlider').value) || 4;
 
@@ -2066,7 +2084,7 @@
       const res = await fetch(`${base}/api/rooms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, mode, map: 'arena', maxPlayers, botCount })
+        body: JSON.stringify({ name, mode, map, maxPlayers, botCount })
       });
       if (res.ok) {
         const room = await res.json();

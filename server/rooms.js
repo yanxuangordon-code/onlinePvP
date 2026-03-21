@@ -4,10 +4,10 @@ const { GameLoop } = require('./gameloop');
 
 let _nextRoomId = 1;
 
-const MAPS = ['arena'];
-const MODES = ['tdm', 'ffa', 'ctf', 'pvc'];
-const MODE_LABELS = { tdm: 'Team Deathmatch', ffa: 'Free For All', ctf: 'Capture the Flag', pvc: 'vs Bots' };
-const MAP_LABELS = { arena: 'FPS Arena' };
+const MAPS = ['arena', 'factory', 'blockade'];
+const MODES = ['tdm', 'ffa', 'ctf', 'pvc', 'doom'];
+const MODE_LABELS = { tdm: 'Team Deathmatch', ffa: 'Free For All', ctf: 'Capture the Flag', pvc: 'vs Bots', doom: 'DOOM Mode' };
+const MAP_LABELS = { arena: 'FPS Arena', factory: 'Factory', blockade: 'Blockade' };
 
 class Room {
   constructor(io, options = {}) {
@@ -17,15 +17,15 @@ class Room {
     this.map = MAPS.includes(options.map) ? options.map : 'arena';
     this.maxPlayers = Math.max(2, Math.min(options.maxPlayers || 12, 16));
     this.io = io;
-    this.gameLoop = new GameLoop(io, this.id, this.mode);
+    this.gameLoop = new GameLoop(io, this.id, this.mode, this.map);
     this.gameLoop.start();
     this.createdAt = Date.now();
 
-    // Seed PvC rooms with bots
-    if (this.mode === 'pvc') {
+    if (this.mode === 'pvc' || this.mode === 'doom') {
       const botCount = options.botCount || 4;
       for (let i = 0; i < botCount; i++) {
-        this.gameLoop.addBot('terrorist');
+        const team = this.mode === 'doom' ? (i % 2 === 0 ? 'ct' : 'terrorist') : 'terrorist';
+        this.gameLoop.addBot(team);
       }
     }
   }

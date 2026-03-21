@@ -172,6 +172,11 @@ io.on('connection', (socket) => {
     }
     room.gameLoop.removePlayer(sock.id);
     sock.leave(roomId);
+    if (room.isEmpty() && room.id !== roomManager._defaultRoomId) {
+      room.destroy();
+      roomManager.rooms.delete(room.id);
+      console.log(`[Room] Auto-deleted empty room: ${room.id}`);
+    }
     io.emit('roomListUpdate', roomManager.listRooms());
   }
 

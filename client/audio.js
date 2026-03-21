@@ -83,6 +83,7 @@ class AudioManager {
       case 'smg':    return this._shotSMG();
       case 'pistol': return this._shotPistol(0.38, 200);
       case 'deagle': return this._shotPistol(0.55, 110);
+      case 'rpg':    return this._shotRPG();
       default:       return this._shotRifle(0.5, 140, 0.25);
     }
   }
@@ -193,6 +194,34 @@ class AudioManager {
     g.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
     osc.connect(g); g.connect(this.masterGain);
     osc.start(now); osc.stop(now + 0.12);
+  }
+
+  _shotRPG() {
+    this._resume();
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const g = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(60, now);
+    osc.frequency.exponentialRampToValueAtTime(20, now + 0.8);
+    g.gain.setValueAtTime(0.6, now);
+    g.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+    osc.connect(g); g.connect(this.masterGain);
+    osc.start(now); osc.stop(now + 1.0);
+
+    const bufSize = Math.ceil(this.ctx.sampleRate * 0.3);
+    const buf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) d[i] = Math.random() * 2 - 1;
+    const ns = this.ctx.createBufferSource();
+    ns.buffer = buf;
+    const nsG = this.ctx.createGain();
+    nsG.gain.setValueAtTime(0.5, now);
+    nsG.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    const lpf = this.ctx.createBiquadFilter();
+    lpf.type = 'lowpass'; lpf.frequency.value = 800;
+    ns.connect(lpf); lpf.connect(nsG); nsG.connect(this.masterGain);
+    ns.start(now);
   }
 
   _shotPistol(dur, pitch) {
