@@ -4,7 +4,7 @@
 const TICK_RATE = 20; // 20 ticks per second
 const PLAYER_SPEED = 0.15;
 const GRAVITY = -0.015;
-const JUMP_FORCE = 0.35;
+const JUMP_FORCE = 0.20;
 const PLAYER_HEIGHT = 1.8;
 const PLAYER_RADIUS = 0.4;
 const RESPAWN_TIME = 3000; // ms

@@ -271,7 +271,7 @@ class FPSGame {
 
   _initRenderer() {
     // Krunker-style: render at 50% resolution, upscale with nearest-neighbor (pixelated)
-    this.pixelScale = 0.5;
+    this.pixelScale = 0.65;
     this.renderer = new THREE.WebGLRenderer({ antialias: false });
     this.renderer.shadowMap.enabled = false;
     this.renderer.setPixelRatio(1);
@@ -450,20 +450,25 @@ class FPSGame {
   _buildMap() {
     const self = this;
 
-    // ---- Krunker flat-shaded materials (no textures) ----
+    // ---- Krunker flat-shaded palette ----
     const flat = (col) => new THREE.MeshLambertMaterial({ color: col, flatShading: true });
 
-    const floorMat    = flat(0xc2a55c); // sandy tan ground
-    const wallMat     = flat(0xb08840); // darker sandy walls
-    const buildingMat = flat(0xc8a85e); // building facade (slightly lighter)
-    const roofMat     = flat(0x8c6c30); // darker roof
-    const crateMat    = flat(0xa07830); // crate boxes (brown)
-    const barrierMat  = flat(0xb89050); // low barriers
-    const ctBaseMat   = flat(0x3355cc); // CT spawn highlight (Krunker blue)
-    const tBaseMat    = flat(0xcc3322); // T spawn highlight (Krunker red)
-    const ctWallMat   = flat(0x2244aa);
-    const tWallMat    = flat(0xaa2211);
-    const windowMat   = flat(0x88aabb); // window panes (light blue)
+    // Krunker Sandstorm palette
+    const groundMat   = flat(0xd4b87a); // warm sandy ground
+    const sandDark    = flat(0xb89450); // darker sand for variation
+    const wallMat     = flat(0xe8d098); // light cream walls (Krunker main wall color)
+    const wallShade   = flat(0xc8aa70); // shaded side of walls
+    const roofMat     = flat(0xa87c40); // roof color
+    const roofDark    = flat(0x8a6030); // dark roof trim
+    const crateMat    = flat(0x8b6914); // wooden crate brown
+    const crateTop    = flat(0xa07820); // lighter crate top
+    const ctWallMat   = flat(0x3355cc); // CT blue
+    const tWallMat    = flat(0xcc3322); // T red
+    const ctFloor     = flat(0x2244aa);
+    const tFloor      = flat(0xaa2211);
+    const windowMat   = flat(0x5588aa); // dark blue window
+    const platMat     = flat(0xd4c070); // elevated platform
+    const railMat     = flat(0xb8a050); // railing
 
     function addBox(x, y, z, w, h, d, mat) {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || crateMat);
@@ -472,111 +477,162 @@ class FPSGame {
       return mesh;
     }
 
-    // ---- Ground plane (sandy) ----
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), floorMat);
+    // ---- Ground ----
+    // Main sandy ground
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), groundMat);
     floor.rotation.x = -Math.PI / 2;
     self.scene.add(floor);
+    // Darker ground patches for visual variety
+    addBox(-20, 0.005, -20, 20, 0.01, 20, sandDark);
+    addBox( 20, 0.005,  20, 20, 0.01, 20, sandDark);
+    addBox(  0, 0.005,   0, 12, 0.01, 12, sandDark);
 
-    // ---- Outer boundary walls (Krunker-style tall border) ----
+    // ---- Boundary walls — Krunker style (tall cream-colored) ----
     const wallH = 5;
-    for (const [x, y, z, w, d] of [
-      [0,    wallH/2, -50,  100, 0.8],
-      [0,    wallH/2,  50,  100, 0.8],
-      [-50,  wallH/2,  0,   0.8, 100],
-      [ 50,  wallH/2,  0,   0.8, 100],
-    ]) {
-      addBox(x, y, z, w, wallH, d, wallMat);
-    }
+    addBox(0,       wallH/2, -50,  100, wallH, 1.0, wallMat);
+    addBox(0,       wallH/2,  50,  100, wallH, 1.0, wallMat);
+    addBox(-50,     wallH/2,   0,  1.0, wallH, 100, wallMat);
+    addBox( 50,     wallH/2,   0,  1.0, wallH, 100, wallMat);
+    // Roof trim on boundary walls
+    addBox(0,       wallH + 0.2, -50, 100, 0.4, 1.4, roofMat);
+    addBox(0,       wallH + 0.2,  50, 100, 0.4, 1.4, roofMat);
+    addBox(-50,     wallH + 0.2,   0, 1.4, 0.4, 100, roofMat);
+    addBox( 50,     wallH + 0.2,   0, 1.4, 0.4, 100, roofMat);
 
-    // ---- Spawn back walls (team-colored, Krunker style) ----
-    addBox(0, 2.5, -45.5, 22, 5, 0.8, ctWallMat);
-    addBox(0, 2.5,  45.5, 22, 5, 0.8, tWallMat);
-    // Side spawn walls
-    addBox(-11, 2.5, -42, 0.8, 5, 8, ctWallMat);
-    addBox( 11, 2.5, -42, 0.8, 5, 8, ctWallMat);
-    addBox(-11, 2.5,  42, 0.8, 5, 8, tWallMat);
-    addBox( 11, 2.5,  42, 0.8, 5, 8, tWallMat);
+    // ---- CT spawn zone ----
+    addBox(0, 0.01, -41, 22, 0.02, 14, ctFloor);
+    addBox(0, 2.5, -45.5, 22, 5, 1.0, ctWallMat);
+    // CT spawn gate pillars
+    addBox(-11, 3.0, -38, 1.0, 6, 1.0, ctWallMat);
+    addBox(  0, 3.0, -38, 1.0, 6, 1.0, ctWallMat);
+    addBox( 11, 3.0, -38, 1.0, 6, 1.0, ctWallMat);
+    addBox(  0, 5.8, -38, 22,  0.6, 1.0, ctWallMat);
+    // CT side walls
+    addBox(-11, 2.5, -42, 1.0, 5, 8, ctWallMat);
+    addBox( 11, 2.5, -42, 1.0, 5, 8, ctWallMat);
 
-    // Spawn zone colored floor patches
-    addBox(0, 0.01, -41, 22, 0.02, 14, flat(0x2244bb)); // CT blue patch
-    addBox(0, 0.01,  41, 22, 0.02, 14, flat(0xbb2211)); // T red patch
+    // ---- T spawn zone ----
+    addBox(0, 0.01,  41, 22, 0.02, 14, tFloor);
+    addBox(0, 2.5,  45.5, 22, 5, 1.0, tWallMat);
+    addBox(-11, 3.0,  38, 1.0, 6, 1.0, tWallMat);
+    addBox(  0, 3.0,  38, 1.0, 6, 1.0, tWallMat);
+    addBox( 11, 3.0,  38, 1.0, 6, 1.0, tWallMat);
+    addBox(  0, 5.8,  38, 22,  0.6, 1.0, tWallMat);
+    addBox(-11, 2.5,  42, 1.0, 5, 8, tWallMat);
+    addBox( 11, 2.5,  42, 1.0, 5, 8, tWallMat);
 
-    // ---- Central building (Krunker's iconic mid-map box with windows) ----
-    // 4 walls of the central building (open top — outdoor Krunker style)
-    const cbH = 4, cbW = 6, cbD = 6;
-    // Front & back walls with a window cut-out style (just thin strips top/bottom)
-    addBox(0, cbH/2, -cbD/2, cbW, cbH, 0.5, buildingMat); // front
-    addBox(0, cbH/2,  cbD/2, cbW, cbH, 0.5, buildingMat); // back
-    addBox(-cbW/2, cbH/2, 0, 0.5, cbH, cbD, buildingMat); // left
-    addBox( cbW/2, cbH/2, 0, 0.5, cbH, cbD, buildingMat); // right
-    // Roof
-    addBox(0, cbH + 0.15, 0, cbW + 0.5, 0.3, cbD + 0.5, roofMat);
-    // Window insets (dark recesses — Krunker windows)
-    addBox(0, cbH * 0.6, -cbD/2 - 0.01, cbW * 0.55, cbH * 0.35, 0.15, windowMat); // front window
-    addBox(0, cbH * 0.6,  cbD/2 + 0.01, cbW * 0.55, cbH * 0.35, 0.15, windowMat); // back window
-    addBox(-cbW/2 - 0.01, cbH * 0.6, 0, 0.15, cbH * 0.35, cbD * 0.55, windowMat); // left window
-    addBox( cbW/2 + 0.01, cbH * 0.6, 0, 0.15, cbH * 0.35, cbD * 0.55, windowMat); // right window
+    // ---- Central building (Krunker mid-map landmark) ----
+    // Main body — 4 solid walls, hollow interior feel
+    addBox(0,  2.0, -3.0, 6, 4, 0.5, wallMat);  // front wall
+    addBox(0,  2.0,  3.0, 6, 4, 0.5, wallMat);  // back wall
+    addBox(-3, 2.0,  0,   0.5, 4, 6, wallShade); // left wall
+    addBox( 3, 2.0,  0,   0.5, 4, 6, wallShade); // right wall
+    // Roof slab
+    addBox(0, 4.15, 0, 6.6, 0.3, 6.6, roofMat);
+    addBox(0, 4.3,  0, 6.2, 0.2, 6.2, roofDark);
+    // Window openings (dark recessed squares in walls)
+    addBox(0,  2.5, -3.05, 2.8, 1.6, 0.2, windowMat); // front window
+    addBox(0,  2.5,  3.05, 2.8, 1.6, 0.2, windowMat); // back window
+    addBox(-3.05, 2.5, 0, 0.2, 1.6, 2.8, windowMat);  // left window
+    addBox( 3.05, 2.5, 0, 0.2, 1.6, 2.8, windowMat);  // right window
+    // Door openings (bottom of front/back walls)
+    addBox(0, 0.75, -3.05, 1.2, 1.5, 0.15, flat(0x2a2010)); // door shadow front
+    addBox(0, 0.75,  3.05, 1.2, 1.5, 0.15, flat(0x2a2010)); // door shadow back
 
-    // ---- CT side cover walls (matching CLIENT_WALLS collision data) ----
+    // ---- CT cover walls ----
+    // Long horizontal walls (matching CLIENT_WALLS)
     addBox(-15, 1.0, -20, 8, 2.0, 0.5, wallMat);
+    addBox(-15, 2.0, -20, 8, 0.3, 0.7, roofMat); // cap
     addBox( 15, 1.0, -20, 8, 2.0, 0.5, wallMat);
+    addBox( 15, 2.0, -20, 8, 0.3, 0.7, roofMat);
     // CT pillars
     addBox(-8, 1.5, -30, 0.5, 3, 8, wallMat);
+    addBox(-8, 3.1, -30, 0.7, 0.3, 8.2, roofMat);
     addBox( 8, 1.5, -30, 0.5, 3, 8, wallMat);
+    addBox( 8, 3.1, -30, 0.7, 0.3, 8.2, roofMat);
 
-    // ---- T side cover walls ----
+    // ---- T cover walls ----
     addBox(-15, 1.0, 20, 8, 2.0, 0.5, wallMat);
+    addBox(-15, 2.0, 20, 8, 0.3, 0.7, roofMat);
     addBox( 15, 1.0, 20, 8, 2.0, 0.5, wallMat);
-    // T pillars
+    addBox( 15, 2.0, 20, 8, 0.3, 0.7, roofMat);
     addBox(-8, 1.5, 30, 0.5, 3, 8, wallMat);
+    addBox(-8, 3.1, 30, 0.7, 0.3, 8.2, roofMat);
     addBox( 8, 1.5, 30, 0.5, 3, 8, wallMat);
+    addBox( 8, 3.1, 30, 0.7, 0.3, 8.2, roofMat);
 
-    // ---- Mid crates (classic Krunker cover boxes) ----
-    addBox(-10, 0.75,  0,  3, 1.5, 3, crateMat);
-    addBox( 10, 0.75,  0,  3, 1.5, 3, crateMat);
-    addBox(  0, 0.75, -12, 3, 1.5, 3, crateMat);
-    addBox(  0, 0.75,  12, 3, 1.5, 3, crateMat);
+    // ---- Mid crates (proper Krunker box shape with top face) ----
+    const mkCrate = (x, z, w, h, d) => {
+      addBox(x, h/2, z, w, h, d, crateMat);         // body
+      addBox(x, h + 0.03, z, w, 0.06, d, crateTop); // lighter top face
+    };
+    mkCrate(-10, 0, 3, 1.5, 3);
+    mkCrate( 10, 0, 3, 1.5, 3);
+    mkCrate(  0, -12, 3, 1.5, 3);
+    mkCrate(  0,  12, 3, 1.5, 3);
     // Stacked top crates
-    addBox(-10, 2.25, 0, 2, 1.0, 2, flat(0x8c6820));
-    addBox( 10, 2.25, 0, 2, 1.0, 2, flat(0x8c6820));
+    mkCrate(-10, 0, 2, 1.0, 2);
+    addBox(-10, 2.5, 0, 2, 1.0, 2, crateMat);
+    addBox(-10, 3.05, 0, 2.1, 0.1, 2.1, crateTop);
+    mkCrate( 10, 0, 2, 1.0, 2);
+    addBox( 10, 2.5, 0, 2, 1.0, 2, crateMat);
+    addBox( 10, 3.05, 0, 2.1, 0.1, 2.1, crateTop);
 
     // ---- Side corridor walls ----
     addBox(-25, 2, 0, 0.5, 4, 20, wallMat);
+    addBox(-25, 4.1, 0, 0.7, 0.2, 20.2, roofMat);
     addBox( 25, 2, 0, 0.5, 4, 20, wallMat);
-
-    // ---- Small barriers near center (matching CLIENT_WALLS) ----
-    addBox(-5, 0.5, -5, 0.4, 1.0, 4, barrierMat);
-    addBox( 5, 0.5, -5, 0.4, 1.0, 4, barrierMat);
-    addBox(-5, 0.5,  5, 0.4, 1.0, 4, barrierMat);
-    addBox( 5, 0.5,  5, 0.4, 1.0, 4, barrierMat);
-
-    // ---- Scattered crates ----
-    addBox(-18, 0.6, -10, 1.5, 1.2, 1.5, crateMat);
-    addBox(-18, 0.6,  10, 1.5, 1.2, 1.5, crateMat);
-    addBox( 18, 0.6, -10, 1.5, 1.2, 1.5, crateMat);
-    addBox( 18, 0.6,  10, 1.5, 1.2, 1.5, crateMat);
-    // Stacked top crates
-    addBox(-18, 1.8, -10, 1.2, 1.0, 1.2, flat(0x8c6820));
-    addBox( 18, 1.8,  10, 1.2, 1.0, 1.2, flat(0x8c6820));
-
-    // ---- Decorative side buildings (Krunker has small structures at sides) ----
-    for (const [sx] of [[-35], [35]]) {
-      // Small house / bunker
-      addBox(sx, 1.5, -15, 6, 3, 5, buildingMat);
-      addBox(sx, 3.15, -15, 6.4, 0.3, 5.4, roofMat);
-      addBox(sx, 1.5,  15, 6, 3, 5, buildingMat);
-      addBox(sx, 3.15,  15, 6.4, 0.3, 5.4, roofMat);
+    addBox( 25, 4.1, 0, 0.7, 0.2, 20.2, roofMat);
+    // Elevated platforms accessible from side (visual richness)
+    addBox(-22, 1.3, -8, 6, 0.2, 3, platMat);
+    addBox(-22, 1.3,  8, 6, 0.2, 3, platMat);
+    addBox( 22, 1.3, -8, 6, 0.2, 3, platMat);
+    addBox( 22, 1.3,  8, 6, 0.2, 3, platMat);
+    // Platform railings
+    for (const [rx, rz] of [[-22,-9.2],[-22,-6.8],[-22,6.8],[-22,9.2],[22,-9.2],[22,-6.8],[22,6.8],[22,9.2]]) {
+      addBox(rx, 1.85, rz, 6, 0.8, 0.1, railMat);
     }
 
-    // ---- Krunker-style spawn arch markers ----
-    // CT side arch
-    addBox(-12, 3, -38, 0.8, 6, 0.8, ctWallMat);
-    addBox( 12, 3, -38, 0.8, 6, 0.8, ctWallMat);
-    addBox(  0, 5.5, -38, 24, 0.8, 0.8, ctWallMat);
-    // T side arch
-    addBox(-12, 3,  38, 0.8, 6, 0.8, tWallMat);
-    addBox( 12, 3,  38, 0.8, 6, 0.8, tWallMat);
-    addBox(  0, 5.5,  38, 24, 0.8, 0.8, tWallMat);
+    // ---- Center barriers (matching CLIENT_WALLS) ----
+    addBox(-5, 0.5, -5, 0.4, 1.0, 4, wallMat);
+    addBox( 5, 0.5, -5, 0.4, 1.0, 4, wallMat);
+    addBox(-5, 0.5,  5, 0.4, 1.0, 4, wallMat);
+    addBox( 5, 0.5,  5, 0.4, 1.0, 4, wallMat);
+    // Caps
+    addBox(-5, 1.05, -5, 0.5, 0.1, 4.1, roofMat);
+    addBox( 5, 1.05, -5, 0.5, 0.1, 4.1, roofMat);
+    addBox(-5, 1.05,  5, 0.5, 0.1, 4.1, roofMat);
+    addBox( 5, 1.05,  5, 0.5, 0.1, 4.1, roofMat);
+
+    // ---- Scattered crates ----
+    mkCrate(-18, -10, 1.5, 1.2, 1.5);
+    mkCrate(-18,  10, 1.5, 1.2, 1.5);
+    mkCrate( 18, -10, 1.5, 1.2, 1.5);
+    mkCrate( 18,  10, 1.5, 1.2, 1.5);
+    mkCrate(-18, -10, 1.2, 1.0, 1.2); // stacked
+    addBox(-18, 2.2, -10, 1.2, 1.0, 1.2, crateMat);
+    mkCrate( 18,  10, 1.2, 1.0, 1.2);
+    addBox( 18, 2.2,  10, 1.2, 1.0, 1.2, crateMat);
+
+    // ---- Side structures (small bunkers — give depth to lanes) ----
+    for (const [sx, sign] of [[-35, -1], [35, 1]]) {
+      // Main bunker body
+      addBox(sx, 1.5, sign * -15, 6, 3, 5, wallMat);
+      addBox(sx, 3.2, sign * -15, 6.4, 0.4, 5.4, roofMat);
+      addBox(sx, 1.5, sign *  15, 6, 3, 5, wallMat);
+      addBox(sx, 3.2, sign *  15, 6.4, 0.4, 5.4, roofMat);
+      // Window slit on each bunker
+      addBox(sx + sign * 0.0, 1.8, sign * -15, 0.15, 0.8, 1.8, windowMat);
+      addBox(sx + sign * 0.0, 1.8, sign *  15, 0.15, 0.8, 1.8, windowMat);
+    }
+
+    // ---- Extra atmospheric props: sand mounds ----
+    for (const [mx, mz, mw, md] of [
+      [-30, -30, 5, 4], [30, 30, 5, 4], [-30, 30, 4, 5], [30, -30, 4, 5],
+      [0, -35, 4, 2], [0, 35, 4, 2],
+    ]) {
+      addBox(mx, 0.3, mz, mw, 0.6, md, sandDark);
+    }
   }
 
   // ---- Input ----
@@ -1496,7 +1552,7 @@ class FPSGame {
 
       // Client-side vertical prediction — per-frame scaled to match 20 TPS trajectory
       const GRAVITY_C   = -0.015;  // server gravity per tick
-      const JUMP_FORCE_C = 0.35;   // server jump force
+      const JUMP_FORCE_C = 0.20;   // server jump force
       const EYE_H = 1.5;
       const SCALE = 16 / 50; // ~3 client frames per server tick
 

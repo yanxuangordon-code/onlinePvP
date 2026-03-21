@@ -6,17 +6,17 @@
   <title>HYPERFIRE - Multiplayer Browser FPS</title>
   <style>
     :root {
-      --bg: #0d1117;
-      --panel: #161b22;
-      --panel2: #21262d;
-      --accent: #e74c3c;
+      --bg: #1a1a1a;
+      --panel: #222222;
+      --panel2: #2a2a2a;
+      --accent: #f0a500;
       --accent2: #4fc3f7;
-      --green: #2ecc71;
-      --yellow: #f1c40f;
+      --green: #5dca3c;
+      --yellow: #f0a500;
       --purple: #9b59b6;
-      --text: #e6edf3;
-      --muted: #8b949e;
-      --border: rgba(255,255,255,0.08);
+      --text: #ffffff;
+      --muted: #999999;
+      --border: rgba(255,255,255,0.10);
     }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -43,11 +43,11 @@
       z-index: 1000;
     }
     .loader-logo {
-      font-size: 3em; font-weight: 900;
-      background: linear-gradient(135deg, #e74c3c, #ff6b35);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      font-size: 3.2em; font-weight: 900;
+      color: var(--accent);
       letter-spacing: 6px; margin-bottom: 24px;
-      text-shadow: none;
+      font-style: italic;
+      text-shadow: 0 0 30px rgba(240,165,0,0.6);
     }
     .loader-tagline { color: var(--muted); font-size: 0.8em; letter-spacing: 4px; margin-bottom: 30px; }
     .loader-bar {
@@ -55,7 +55,7 @@
       background: var(--panel2); border-radius: 2px; overflow: hidden;
     }
     .loader-fill {
-      height: 100%; background: linear-gradient(90deg, #e74c3c, #ff6b35);
+      height: 100%; background: var(--accent);
       border-radius: 2px;
       animation: loadFill 1.4s ease-in-out forwards;
     }
@@ -109,16 +109,16 @@
 
     /* Top bar */
     .topbar {
-      height: 52px; background: var(--panel);
-      border-bottom: 1px solid var(--border);
+      height: 48px; background: #111111;
+      border-bottom: 2px solid var(--accent);
       display: flex; align-items: center;
-      padding: 0 20px; gap: 14px; flex-shrink: 0; z-index: 1;
+      padding: 0 16px; gap: 8px; flex-shrink: 0; z-index: 1;
     }
     .topbar-logo {
-      font-size: 1.4em; font-weight: 900;
-      background: linear-gradient(135deg, #e74c3c, #ff6b35);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      letter-spacing: 4px;
+      font-size: 1.5em; font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 3px; font-style: italic;
+      text-shadow: 0 0 20px rgba(240,165,0,0.5);
     }
     .topbar-badge {
       color: var(--muted); font-size: 0.7em;
@@ -145,18 +145,18 @@
     }
     .topbar-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
 
-    /* Single-column layout (side panels removed) */
+    /* Krunker 3-column layout */
     .home-content {
       flex: 1; display: grid;
-      grid-template-columns: 1fr;
+      grid-template-columns: 260px 1fr 260px;
       overflow: hidden;
     }
 
     /* Side panels */
     .side-panel {
-      background: var(--panel); padding: 18px;
+      background: #111111; padding: 14px;
       overflow-y: auto; display: flex;
-      flex-direction: column; gap: 14px;
+      flex-direction: column; gap: 12px;
     }
     .side-panel.left { border-right: 1px solid var(--border); }
     .side-panel.right { border-left: 1px solid var(--border); }
@@ -169,17 +169,16 @@
 
     /* Profile card */
     .profile-card {
-      background: var(--panel2); border-radius: 10px;
-      padding: 20px; text-align: center;
+      background: var(--panel2); border-radius: 4px;
+      padding: 16px; text-align: center;
       border: 1px solid var(--border);
     }
     .profile-avatar {
-      width: 70px; height: 70px; border-radius: 50%;
-      margin: 0 auto 12px;
+      width: 64px; height: 64px; border-radius: 4px;
+      margin: 0 auto 10px;
       display: flex; align-items: center; justify-content: center;
       font-size: 1.8em; font-weight: 900; color: #fff;
-      border: 3px solid rgba(231,76,60,0.5);
-      box-shadow: 0 0 16px rgba(231,76,60,0.2);
+      border: 2px solid var(--accent);
     }
     .profile-name { font-size: 1.05em; font-weight: bold; margin-bottom: 3px; }
     .profile-sub { color: var(--muted); font-size: 0.78em; margin-bottom: 10px; }
@@ -223,69 +222,62 @@
     .home-center {
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      gap: 24px; padding: 30px; position: relative;
-      background: radial-gradient(ellipse at center, rgba(231,76,60,0.04) 0%, transparent 70%);
+      gap: 20px; padding: 30px; position: relative;
+      background: radial-gradient(ellipse at center, rgba(240,165,0,0.05) 0%, transparent 70%);
       overflow-y: auto;
     }
 
     .game-logo { text-align: center; }
     .game-logo h1 {
-      font-size: 4em; font-weight: 900;
-      letter-spacing: 6px;
-      background: linear-gradient(135deg, #fff 30%, #ff6b35 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      font-size: 5em; font-weight: 900;
+      letter-spacing: 4px;
+      color: var(--accent);
+      font-style: italic;
       line-height: 1;
+      text-shadow: 0 0 40px rgba(240,165,0,0.4), 3px 3px 0 rgba(0,0,0,0.5);
     }
-    .game-logo .logo-fire {
-      font-size: 0.65em; color: var(--accent);
-      letter-spacing: 8px; text-transform: uppercase; margin-top: 6px;
-      -webkit-text-fill-color: initial;
+    .game-logo .logo-sub {
+      font-size: 0.62em; color: var(--muted);
+      letter-spacing: 6px; text-transform: uppercase; margin-top: 6px;
+      font-style: normal; font-weight: normal;
     }
 
     /* Play buttons section */
     .play-section {
       display: flex; flex-direction: column; align-items: center; gap: 10px;
-      width: 100%; max-width: 420px;
+      width: 100%; max-width: 360px;
     }
     .btn-play {
-      background: linear-gradient(135deg, var(--accent), #ff6b35);
-      border: none; border-radius: 14px;
-      color: #fff; font-size: 1.6em; font-weight: 900;
-      padding: 20px 0; cursor: pointer; letter-spacing: 5px;
-      width: 100%; transition: all 0.2s;
-      box-shadow: 0 0 30px rgba(231,76,60,0.35), 0 6px 20px rgba(0,0,0,0.4);
-      position: relative; overflow: hidden;
+      background: var(--accent);
+      border: none; border-radius: 4px;
+      color: #111; font-size: 1.5em; font-weight: 900;
+      padding: 18px 0; cursor: pointer; letter-spacing: 6px;
+      width: 100%; transition: all 0.15s;
+      box-shadow: 0 4px 0 #a06800, 0 6px 20px rgba(0,0,0,0.4);
+      font-style: italic;
     }
-    .btn-play::after {
-      content: '';
-      position: absolute; top: 0; left: -100%;
-      width: 100%; height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
-      transition: left 0.5s;
-    }
-    .btn-play:hover::after { left: 100%; }
-    .btn-play:hover { transform: scale(1.03); box-shadow: 0 0 50px rgba(231,76,60,0.55), 0 10px 30px rgba(0,0,0,0.5); }
-    .btn-play:active { transform: scale(0.97); }
-    .play-hint { color: var(--muted); font-size: 0.78em; letter-spacing: 1px; }
+    .btn-play:hover { background: #ffc030; box-shadow: 0 4px 0 #b07000, 0 8px 25px rgba(0,0,0,0.5); transform: translateY(-1px); }
+    .btn-play:active { transform: translateY(2px); box-shadow: 0 2px 0 #a06800; }
+    .play-hint { color: var(--muted); font-size: 0.75em; letter-spacing: 1px; }
 
     /* Secondary play buttons row */
-    .play-row { display: flex; gap: 10px; width: 100%; }
+    .play-row { display: flex; gap: 8px; width: 100%; }
     .btn-secondary {
-      flex: 1; padding: 14px 10px;
+      flex: 1; padding: 12px 8px;
       border: 1px solid var(--border);
-      border-radius: 10px; background: var(--panel2);
+      border-radius: 4px; background: var(--panel2);
       color: var(--text); cursor: pointer; font-weight: bold;
-      font-size: 0.88em; letter-spacing: 1px;
-      transition: all 0.2s; display: flex;
-      flex-direction: column; align-items: center; gap: 5px;
+      font-size: 0.85em; letter-spacing: 1px;
+      transition: all 0.15s; display: flex;
+      flex-direction: column; align-items: center; gap: 4px;
     }
-    .btn-secondary .btn-icon { font-size: 1.5em; }
-    .btn-secondary .btn-label { font-size: 0.85em; letter-spacing: 1px; }
-    .btn-secondary .btn-desc { font-size: 0.68em; color: var(--muted); font-weight: normal; letter-spacing: 0; }
-    .btn-secondary:hover { border-color: rgba(255,255,255,0.25); background: #2a3140; transform: translateY(-2px); }
-    .btn-secondary:active { transform: translateY(0); }
+    .btn-secondary .btn-icon { font-size: 1.4em; }
+    .btn-secondary .btn-label { font-size: 0.82em; letter-spacing: 1px; }
+    .btn-secondary .btn-desc { font-size: 0.65em; color: var(--muted); font-weight: normal; letter-spacing: 0; }
+    .btn-secondary:hover { border-color: var(--accent); background: #333; }
+    .btn-secondary:active { transform: scale(0.98); }
     .btn-secondary.pvc { border-color: rgba(155,89,182,0.4); }
-    .btn-secondary.pvc:hover { border-color: rgba(155,89,182,0.7); background: #1e1a2e; }
+    .btn-secondary.pvc:hover { border-color: rgba(155,89,182,0.8); background: #1e1a2e; }
 
     /* Game info cards */
     .game-cards {
@@ -1122,33 +1114,122 @@
   <!-- Main 3-column layout -->
   <div class="home-content">
 
+    <!-- LEFT PANEL: Profile + Stats -->
+    <div class="side-panel left">
+      <div class="panel-title">PLAYER</div>
+      <div class="profile-card">
+        <div class="profile-avatar" id="homeAvatar" style="background:#333">?</div>
+        <div class="profile-name" id="homePlayerName">Unknown</div>
+        <div class="profile-sub" id="homeRank">🔫 RECRUIT</div>
+        <button class="profile-edit-btn" id="homeEditNameBtn">✏ Change Name</button>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-box"><div class="stat-value red" id="homeKills">0</div><div class="stat-label">KILLS</div></div>
+        <div class="stat-box"><div class="stat-value blue" id="homeDeaths">0</div><div class="stat-label">DEATHS</div></div>
+        <div class="stat-box"><div class="stat-value green" id="homeKD">0.00</div><div class="stat-label">K/D</div></div>
+        <div class="stat-box"><div class="stat-value" id="homeWins">0</div><div class="stat-label">WINS</div></div>
+      </div>
+      <div class="rank-badge">
+        <span class="rank-icon" id="homeRankIcon">🔫</span>
+        <div class="rank-info">
+          <div class="rank-name" id="homeRankName">RECRUIT</div>
+          <div class="rank-desc" id="homeRankDesc">Keep fighting!</div>
+        </div>
+      </div>
+      <div class="panel-title" style="margin-top:4px">LOADOUT</div>
+      <div style="display:flex;gap:8px">
+        <div class="stat-box" style="flex:1;padding:10px">
+          <div style="font-size:0.65em;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Primary</div>
+          <div id="homePrimary" style="font-size:0.9em;font-weight:bold;margin-top:3px">AK-47</div>
+        </div>
+        <div class="stat-box" style="flex:1;padding:10px">
+          <div style="font-size:0.65em;color:var(--muted);letter-spacing:1px;text-transform:uppercase">Secondary</div>
+          <div id="homeSecondary" style="font-size:0.9em;font-weight:bold;margin-top:3px">Glock</div>
+        </div>
+      </div>
+      <button class="btn-secondary" id="homegGunShopBtn" style="width:100%;border-color:rgba(240,165,0,0.4);color:var(--accent)">
+        🔫 GUN SHOP
+      </button>
+    </div>
+
     <!-- CENTER: Logo + Play Buttons -->
     <div class="home-center">
       <div class="game-logo">
         <h1>HYPERFIRE</h1>
-        <div class="logo-fire">🔥 Multiplayer · Browser · FPS 🔥</div>
+        <div class="logo-sub">Multiplayer Browser FPS</div>
       </div>
 
       <div class="play-section">
-        <!-- Quick Play -->
-        <button class="btn-play" id="quickPlayBtn">⚡ QUICK PLAY</button>
-        <div class="play-hint">Auto-join the best available server</div>
+        <button class="btn-play" id="quickPlayBtn">PLAY</button>
+        <div class="play-hint">Click to find a match instantly</div>
 
-        <!-- Secondary buttons -->
         <div class="play-row">
           <button class="btn-secondary" id="serverBrowserBtn">
             <span class="btn-icon">🌐</span>
-            <span class="btn-label">SERVER BROWSER</span>
-            <span class="btn-desc">Choose or create a server</span>
+            <span class="btn-label">CUSTOM</span>
+            <span class="btn-desc">Server browser</span>
           </button>
           <button class="btn-secondary pvc" id="pvcBtn">
             <span class="btn-icon">🤖</span>
             <span class="btn-label">vs BOTS</span>
-            <span class="btn-desc">Train against AI opponents</span>
+            <span class="btn-desc">Practice mode</span>
+          </button>
+          <button class="btn-secondary" id="howToPlayBtn2" style="border-color:rgba(79,195,247,0.4)">
+            <span class="btn-icon">📖</span>
+            <span class="btn-label">HOW TO</span>
+            <span class="btn-desc">Controls & tips</span>
           </button>
         </div>
       </div>
 
+      <!-- Game mode cards -->
+      <div class="game-cards" style="max-width:360px">
+        <div class="game-card"><div class="card-icon">⚔️</div><div class="card-label">Mode</div><div class="card-value">TDM</div></div>
+        <div class="game-card"><div class="card-icon">💀</div><div class="card-label">Mode</div><div class="card-value">FFA</div></div>
+        <div class="game-card"><div class="card-icon">🚩</div><div class="card-label">Mode</div><div class="card-value">CTF</div></div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: Server info + News -->
+    <div class="side-panel right">
+      <div class="panel-title">SERVER STATUS</div>
+      <div class="profile-card" style="text-align:left;padding:14px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <div class="status-dot" id="serverStatusDot"></div>
+          <span style="font-size:0.85em" id="serverStatusText">Connecting...</span>
+        </div>
+        <div style="font-size:0.78em;color:var(--muted)" id="onlineCount">0 players online</div>
+      </div>
+
+      <div class="panel-title">GAME MODES</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <div class="stat-box" style="text-align:left;padding:10px 12px">
+          <div style="font-size:0.82em;font-weight:bold">⚔️ Team Deathmatch</div>
+          <div style="font-size:0.68em;color:var(--muted);margin-top:2px">CT vs T · First to 30 kills</div>
+        </div>
+        <div class="stat-box" style="text-align:left;padding:10px 12px">
+          <div style="font-size:0.82em;font-weight:bold">💀 Free For All</div>
+          <div style="font-size:0.68em;color:var(--muted);margin-top:2px">Everyone vs everyone · 20 kills</div>
+        </div>
+        <div class="stat-box" style="text-align:left;padding:10px 12px">
+          <div style="font-size:0.82em;font-weight:bold">🚩 Capture the Flag</div>
+          <div style="font-size:0.68em;color:var(--muted);margin-top:2px">Steal & capture · First to 5</div>
+        </div>
+        <div class="stat-box" style="text-align:left;padding:10px 12px">
+          <div style="font-size:0.82em;font-weight:bold">💥 DOOM Mode</div>
+          <div style="font-size:0.68em;color:var(--muted);margin-top:2px">Everyone has RPG · Pure chaos</div>
+        </div>
+      </div>
+
+      <div class="panel-title">CONTROLS</div>
+      <div class="controls-list">
+        <div class="control-row"><span class="key">WASD</span><span class="ctrl-desc">Move</span></div>
+        <div class="control-row"><span class="key">Mouse</span><span class="ctrl-desc">Aim</span></div>
+        <div class="control-row"><span class="key">LMB</span><span class="ctrl-desc">Shoot</span></div>
+        <div class="control-row"><span class="key">R</span><span class="ctrl-desc">Reload</span></div>
+        <div class="control-row"><span class="key">Space</span><span class="ctrl-desc">Jump</span></div>
+        <div class="control-row"><span class="key">Tab</span><span class="ctrl-desc">Scoreboard</span></div>
+      </div>
     </div>
   </div>
 
@@ -1406,6 +1487,25 @@
     const coins = stats.coins || 0;
     const letter = name.charAt(0).toUpperCase() || '?';
     const color = getAvatarColor(name);
+
+    // ---- Left panel home stats ----
+    const ha = document.getElementById('homeAvatar');
+    if (ha) { ha.textContent = letter; ha.style.background = color; }
+    const hn = document.getElementById('homePlayerName');
+    if (hn) hn.textContent = name;
+    const hr = document.getElementById('homeRank');
+    if (hr) hr.textContent = `${rank.icon} ${rank.name}`;
+    const hk = document.getElementById('homeKills'); if (hk) hk.textContent = kills;
+    const hd = document.getElementById('homeDeaths'); if (hd) hd.textContent = deaths;
+    const hkd = document.getElementById('homeKD'); if (hkd) hkd.textContent = kd;
+    const hw = document.getElementById('homeWins'); if (hw) hw.textContent = stats.totalWins || 0;
+    const hri = document.getElementById('homeRankIcon'); if (hri) hri.textContent = rank.icon;
+    const hrn = document.getElementById('homeRankName'); if (hrn) hrn.textContent = rank.name;
+    const hrd = document.getElementById('homeRankDesc'); if (hrd) hrd.textContent = rank.desc;
+    const hp = document.getElementById('homePrimary');
+    if (hp) hp.textContent = (WEAPON_INFO[stats.equippedPrimary || 'ak47'] || {}).name || 'AK-47';
+    const hs = document.getElementById('homeSecondary');
+    if (hs) hs.textContent = (WEAPON_INFO[stats.equippedSecondary || 'pistol'] || {}).name || 'Glock';
 
     // Topbar widget
     const ta = document.getElementById('topbarAvatar');
@@ -2100,19 +2200,24 @@
     }
   });
 
-  // HOW TO PLAY button
-  document.getElementById('howToPlayBtn').addEventListener('click', () => {
-    document.getElementById('howToPlayModal').classList.add('show');
+  // HOW TO PLAY buttons (topbar + center panel)
+  ['howToPlayBtn', 'howToPlayBtn2'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', () => document.getElementById('howToPlayModal').classList.add('show'));
   });
   document.getElementById('closeHowToPlayBtn').addEventListener('click', () => {
     document.getElementById('howToPlayModal').classList.remove('show');
   });
 
-  // GUN SHOP button
-  document.getElementById('gunShopBtn').addEventListener('click', () => {
-    renderShop();
-    document.getElementById('gunShopModal').classList.add('show');
+  // GUN SHOP button (topbar + left panel)
+  ['gunShopBtn', 'homegGunShopBtn'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', () => { renderShop(); document.getElementById('gunShopModal').classList.add('show'); });
   });
+
+  // Home panel edit name
+  const homeEditBtn = document.getElementById('homeEditNameBtn');
+  if (homeEditBtn) homeEditBtn.addEventListener('click', () => document.getElementById('usernameModal').classList.add('show'));
   document.getElementById('closeGunShopBtn').addEventListener('click', () => {
     document.getElementById('gunShopModal').classList.remove('show');
   });
