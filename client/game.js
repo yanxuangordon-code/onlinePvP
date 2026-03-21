@@ -137,6 +137,9 @@ class FPSGame {
     // Footstep
     this.footstepTimer = 0;
     this.lastFootY = 0;
+
+    // Soldier GLB models (loaded async; null = not yet loaded)
+    this.soldierModels = { ct: null, t: null };
   }
 
   // Client-side wall collision (mirrors server collidesWithWall)
@@ -162,10 +165,64 @@ class FPSGame {
     this._initInput();
     this.ui.init();
 
+    this._preloadSoldierModels();
+
     this.socket.connect(this.serverUrl);
     this._setupSocketEvents();
 
     this._animate();
+  }
+
+  _preloadSoldierModels() {
+    if (typeof THREE.GLTFLoader === 'undefined') return;
+    const loader = new THREE.GLTFLoader();
+    const base = './client/models/';
+    const load = (side) => {
+      loader.load(
+        base + 'soldier_' + side + '.glb',
+        (gltf) => {
+          const model = gltf.scene;
+          model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+          this.soldierModels[side] = model;
+          console.log('[HYPERFIRE] Loaded soldier_' + side + '.glb');
+          // Swap any already-spawned remote players to use the new model
+          for (const [id, rp] of this.remotePlayers) {
+            if (rp.team === side && !rp.usingGLTF) {
+              this._swapToGLTFModel(rp, side);
+            }
+          }
+        },
+        undefined,
+        () => { /* file not found — stay with procedural */ }
+      );
+    };
+    load('ct');
+    load('t');
+  }
+
+  _swapToGLTFModel(rp, side) {
+    const template = this.soldierModels[side];
+    if (!template) return;
+    const clone = template.clone(true);
+    clone.scale.setScalar(0.75);
+    // Preserve name label and position/rotation from old mesh
+    const old = rp.mesh;
+    clone.position.copy(old.position);
+    clone.rotation.copy(old.rotation);
+    // Re-attach name label
+    if (rp.label) { old.remove(rp.label); clone.add(rp.label); }
+    this.scene.remove(old);
+    this.scene.add(clone);
+    rp.mesh = clone;
+    rp.usingGLTF = true;
+    // Copy over animation userData stubs so walking code doesn't crash
+    clone.userData.leftLeg  = null;
+    clone.userData.rightLeg = null;
+    clone.userData.leftArm  = null;
+    clone.userData.rightArm = null;
+    clone.userData.walkCycle = 0;
+    clone.userData.prevX = old.userData.prevX || 0;
+    clone.userData.prevZ = old.userData.prevZ || 0;
   }
 
   // ---- Renderer ----
@@ -1052,6 +1109,22 @@ class FPSGame {
   // ---- Remote Players ----
 
   _createPlayerMesh(team) {
+    // If GLTF model is loaded, use it instead of procedural geometry
+    const gltfTemplate = this.soldierModels[team];
+    if (gltfTemplate) {
+      const clone = gltfTemplate.clone(true);
+      clone.scale.setScalar(0.75);
+      clone.userData.leftLeg  = null;
+      clone.userData.rightLeg = null;
+      clone.userData.leftArm  = null;
+      clone.userData.rightArm = null;
+      clone.userData.walkCycle = 0;
+      clone.userData.prevX = 0;
+      clone.userData.prevZ = 0;
+      clone.userData.usingGLTF = true;
+      return clone;
+    }
+
     const isCT = team === 'ct';
     const g = new THREE.Group();
 
@@ -1206,7 +1279,7 @@ class FPSGame {
         label.position.y = 2.1;
         mesh.add(label);
         this.scene.add(mesh);
-        this.remotePlayers.set(p.id, { mesh, label, team: p.team, alive: p.alive });
+        this.remotePlayers.set(p.id, { mesh, label, team: p.team, alive: p.alive, usingGLTF: !!mesh.userData.usingGLTF });
       }
 
       const rp = this.remotePlayers.get(p.id);
