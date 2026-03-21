@@ -118,6 +118,25 @@ class FPSGame {
     // Screen shake
     this.screenShakeAmt = 0;
     this.screenShakeDecay = 0.85;
+
+    // Weapon sway
+    this.swayX = 0;
+    this.swayY = 0;
+    this.walkCycle = 0;
+    this.weaponBasePos = {
+      ak47:    { x: 0.2,  y: -0.28, z: -0.38 },
+      m4a1:    { x: 0.2,  y: -0.28, z: -0.38 },
+      awp:     { x: 0.22, y: -0.28, z: -0.55 },
+      shotgun: { x: 0.2,  y: -0.28, z: -0.35 },
+      smg:     { x: 0.18, y: -0.28, z: -0.3  },
+      pistol:  { x: 0.15, y: -0.28, z: -0.3  },
+      deagle:  { x: 0.15, y: -0.28, z: -0.3  },
+      rifle:   { x: 0.2,  y: -0.28, z: -0.38 },
+    };
+
+    // Footstep
+    this.footstepTimer = 0;
+    this.lastFootY = 0;
   }
 
   // Client-side wall collision (mirrors server collidesWithWall)
@@ -414,7 +433,25 @@ class FPSGame {
   _buildMap() {
     const self = this;
 
-    // ---- High-quality procedural textures ----
+    // ---- CDN texture loader (real images — brick, crate, metal) ----
+    const loader = new THREE.TextureLoader();
+    loader.crossOrigin = 'anonymous';
+    const CDN = 'https://raw.githubusercontent.com/mrdoob/three.js/r128/examples/textures/';
+
+    function cdnTex(path, repeatS, repeatT) {
+      const t = loader.load(CDN + path);
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(repeatS || 1, repeatT || 1);
+      return t;
+    }
+
+    // Real brick texture for walls (gray-tinted = concrete)
+    const brickDiff = cdnTex('brick_diffuse.jpg', 4, 2);
+    const brickBump = cdnTex('brick_bump.jpg',    4, 2);
+    // Real wood crate
+    const crateDiff = cdnTex('crate.gif', 1, 1);
+
+    // ---- Procedural fallback / supplementary textures ----
     function makeTex(size, drawFn) {
       const canvas = document.createElement('canvas');
       canvas.width = size; canvas.height = size;
@@ -538,12 +575,17 @@ class FPSGame {
     });
     tTex.repeat.set(2, 2);
 
-    const std = (map, col, rough, metal) => new THREE.MeshStandardMaterial({ map, color: col||0xffffff, roughness: rough!==undefined?rough:0.85, metalness: metal||0 });
+    const std = (map, col, rough, metal, bump) => {
+      const m = new THREE.MeshStandardMaterial({ map, color: col||0xffffff, roughness: rough!==undefined?rough:0.85, metalness: metal||0 });
+      if (bump) { m.bumpMap = bump; m.bumpScale = 0.4; }
+      return m;
+    };
 
-    const wallMat       = std(wallTex,  0xffffff, 0.9,  0.02);
+    // Use real CDN textures for walls + crates; keep procedural for floor/ceiling/spawns
+    const wallMat       = std(brickDiff, 0xaaaaaa, 0.9, 0.02, brickBump); // gray-tinted brick = concrete
     const floorMat      = std(floorTex, 0xffffff, 0.85, 0.05);
     const ceilMat       = std(ceilTex,  0xffffff, 0.6,  0.3);
-    const boxMat        = std(boxTex,   0xffffff, 0.95, 0.0);
+    const boxMat        = std(crateDiff, 0xffffff, 0.95, 0.0);
     const concreteMat   = new THREE.MeshStandardMaterial({ color: 0x7a7874, roughness: 0.9, metalness: 0.0 });
     const concreteMatDk = new THREE.MeshStandardMaterial({ color: 0x575450, roughness: 0.9, metalness: 0.0 });
     const metalMat      = new THREE.MeshStandardMaterial({ color: 0x555a60, roughness: 0.4, metalness: 0.7 });
@@ -616,6 +658,17 @@ class FPSGame {
       const strip = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 2.2), lightStripMat);
       strip.position.set(sx, wallH - 0.07, sz);
       self.scene.add(strip);
+    }
+
+    // ---- Ceiling support beams ----
+    const beamMat = new THREE.MeshStandardMaterial({ color: 0x3a3f4a, roughness: 0.45, metalness: 0.65 });
+    // Cross beams (X-axis)
+    for (let z = -40; z <= 40; z += 20) {
+      addBox(0, wallH - 0.35, z, 100, 0.5, 0.4, beamMat);
+    }
+    // Longitudinal beams (Z-axis)
+    for (let x = -40; x <= 40; x += 20) {
+      addBox(x, wallH - 0.25, 0, 0.4, 0.35, 100, beamMat);
     }
 
     // ---- CT spawn zone ----
@@ -784,6 +837,9 @@ class FPSGame {
         const canvas = document.getElementById('gameCanvas');
         // Only lock pointer when actually in-game (canvas visible), not on home page
         if (!canvas || !canvas.classList.contains('active')) return;
+        // Don't re-lock when pause/quit overlay is showing — lets buttons be clicked
+        const pauseOverlay = document.getElementById('pauseOverlay');
+        if (pauseOverlay && pauseOverlay.classList.contains('show')) return;
         const renderer = canvas.children[0];
         if (renderer) renderer.requestPointerLock();
         return;
@@ -964,6 +1020,23 @@ class FPSGame {
     }
   }
 
+  _spawnFootstepDust() {
+    const pos = new THREE.Vector3(
+      this.camera.position.x + (Math.random() - 0.5) * 0.3,
+      0.05,
+      this.camera.position.z + (Math.random() - 0.5) * 0.3
+    );
+    for (let i = 0; i < 4; i++) {
+      const geo = new THREE.SphereGeometry(0.06 + Math.random() * 0.06, 4, 4);
+      const mat = new THREE.MeshBasicMaterial({ color: 0xaaaaaa, transparent: true, opacity: 0.35 });
+      const p = new THREE.Mesh(geo, mat);
+      p.position.copy(pos);
+      const vel = new THREE.Vector3((Math.random()-0.5)*0.04, Math.random()*0.05+0.02, (Math.random()-0.5)*0.04);
+      this.scene.add(p);
+      this.particles.push({ mesh: p, vel, life: 0.6, maxLife: 0.6, isDust: true });
+    }
+  }
+
   _addBulletTracer(from, to) {
     const dir = new THREE.Vector3().subVectors(to, from);
     const len = dir.length();
@@ -1048,19 +1121,54 @@ class FPSGame {
     // Stock
     add(mk(0.06, 0.07, 0.14, 0x3a3a3a, 0.6, 0.4),     0.40, 0.79, -0.0);
 
-    // --- Legs ---
-    // Upper legs
-    add(mk(0.24, 0.50, 0.24, pantsCol, 0.9, 0.0), -0.16, -0.24, 0);
-    add(mk(0.24, 0.50, 0.24, pantsCol, 0.9, 0.0),  0.16, -0.24, 0);
-    // Knee pads
-    add(mk(0.22, 0.14, 0.14, armorCol, 0.5, 0.2), -0.16, -0.38, -0.10);
-    add(mk(0.22, 0.14, 0.14, armorCol, 0.5, 0.2),  0.16, -0.38, -0.10);
-    // Lower legs
-    add(mk(0.20, 0.42, 0.20, pantsCol, 0.9, 0.0), -0.16, -0.70, 0);
-    add(mk(0.20, 0.42, 0.20, pantsCol, 0.9, 0.0),  0.16, -0.70, 0);
-    // Boots
-    add(mk(0.22, 0.12, 0.26, 0x111111, 0.8, 0.1), -0.16, -0.94, -0.02);
-    add(mk(0.22, 0.12, 0.26, 0x111111, 0.8, 0.1),  0.16, -0.94, -0.02);
+    // --- Legs (grouped for walking animation) ---
+    const leftLeg  = new THREE.Group(); leftLeg.position.set(-0.16, -0.24, 0);
+    const rightLeg = new THREE.Group(); rightLeg.position.set( 0.16, -0.24, 0);
+
+    const mkLeg = (group) => {
+      group.add(Object.assign(mk(0.24, 0.50, 0.24, pantsCol, 0.9, 0.0), {})); // upper
+      const knee = mk(0.22, 0.14, 0.14, armorCol, 0.5, 0.2);
+      knee.position.set(0, -0.14, -0.10); group.add(knee);
+      const lower = mk(0.20, 0.42, 0.20, pantsCol, 0.9, 0.0);
+      lower.position.set(0, -0.46, 0); group.add(lower);
+      const boot = mk(0.22, 0.12, 0.26, 0x111111, 0.8, 0.1);
+      boot.position.set(0, -0.70, -0.02); group.add(boot);
+      group.children.forEach(c => { c.castShadow = true; c.receiveShadow = true; });
+    };
+    mkLeg(leftLeg); mkLeg(rightLeg);
+    g.add(leftLeg); g.add(rightLeg);
+
+    // --- Arms (grouped for walk swing) ---
+    const leftArm  = new THREE.Group(); leftArm.position.set(-0.40, 0.70, 0);
+    const rightArm = new THREE.Group(); rightArm.position.set( 0.40, 0.70, 0);
+    const mkArm = (group, isRight) => {
+      group.add(mk(0.20, 0.38, 0.20, upperArmCol, 0.85, 0.0));
+      const fore = mk(0.18, 0.32, 0.18, gloveCol, 0.7, 0.15);
+      fore.position.set(0, -0.34, 0); group.add(fore);
+      const hand = mk(0.16, 0.14, 0.10, gloveCol, 0.7, 0.15);
+      hand.position.set(0, -0.53, -0.04); group.add(hand);
+      if (isRight) {
+        // Weapon held
+        const recv = mk(0.07, 0.08, 0.40, gunMetalCol, 0.35, 0.85);
+        recv.position.set(0, 0.10, -0.22); group.add(recv);
+        const brl = mk(0.04, 0.04, 0.28, gunMetalCol, 0.3, 0.9);
+        brl.position.set(0, 0.13, -0.48); group.add(brl);
+        const mag = mk(0.05, 0.14, 0.06, 0x1a1a1a, 0.5, 0.5);
+        mag.position.set(0, -0.10, -0.18); group.add(mag);
+      }
+      group.children.forEach(c => { c.castShadow = true; c.receiveShadow = true; });
+    };
+    mkArm(leftArm, false); mkArm(rightArm, true);
+    g.add(leftArm); g.add(rightArm);
+
+    // Store refs for animation
+    g.userData.leftLeg  = leftLeg;
+    g.userData.rightLeg = rightLeg;
+    g.userData.leftArm  = leftArm;
+    g.userData.rightArm = rightArm;
+    g.userData.walkCycle = 0;
+    g.userData.prevX = 0;
+    g.userData.prevZ = 0;
 
     return g;
   }
@@ -1102,11 +1210,45 @@ class FPSGame {
       }
 
       const rp = this.remotePlayers.get(p.id);
-      rp.mesh.position.set(p.x, p.y - 0.9, p.z);
+
+      // Death knockdown: tilt body 90° to the side
+      if (rp.alive && !p.alive) {
+        // Just died — animate falling
+        rp.mesh.userData.deathTilt = 0;
+      }
+      if (!p.alive && rp.mesh.userData.deathTilt !== undefined) {
+        rp.mesh.userData.deathTilt = Math.min(Math.PI / 2, (rp.mesh.userData.deathTilt || 0) + 0.08);
+        rp.mesh.rotation.z = rp.mesh.userData.deathTilt;
+        rp.mesh.position.y = (p.y - 0.9) - Math.sin(rp.mesh.userData.deathTilt) * 0.4;
+      } else if (p.alive) {
+        rp.mesh.userData.deathTilt = 0;
+        rp.mesh.rotation.z = 0;
+        rp.mesh.position.set(p.x, p.y - 0.9, p.z);
+      }
+
       rp.mesh.rotation.y = -p.yaw;
-      rp.mesh.visible = p.alive;
+      rp.mesh.visible = p.alive || (rp.mesh.userData.deathTilt < Math.PI / 2);
       rp.label.visible = p.alive;
       rp.alive = p.alive;
+
+      // Walking limb animation
+      if (p.alive) {
+        const ud = rp.mesh.userData;
+        const dx = p.x - (ud.prevX || p.x), dz = p.z - (ud.prevZ || p.z);
+        const isMoving = Math.sqrt(dx*dx + dz*dz) > 0.005;
+        ud.prevX = p.x; ud.prevZ = p.z;
+
+        if (isMoving) ud.walkCycle = (ud.walkCycle || 0) + 0.18;
+        const wc = ud.walkCycle || 0;
+        const swing = isMoving ? Math.sin(wc) * 0.4 : 0;
+        const bodyBob = isMoving ? Math.abs(Math.sin(wc * 2)) * 0.04 : 0;
+
+        if (ud.leftLeg)  ud.leftLeg.rotation.x  =  swing;
+        if (ud.rightLeg) ud.rightLeg.rotation.x  = -swing;
+        if (ud.leftArm)  ud.leftArm.rotation.x   = -swing * 0.5;
+        if (ud.rightArm) ud.rightArm.rotation.x  =  swing * 0.5;
+        rp.mesh.position.y = (p.y - 0.9) + bodyBob;
+      }
     }
 
     // Remove disconnected players
@@ -1332,11 +1474,49 @@ class FPSGame {
       this.screenShakeAmt = 0;
     }
 
+    this._updateWeaponSway();
+
     if (this.composer) {
       this.composer.render();
     } else {
       this.renderer.render(this.scene, this.camera);
     }
+  }
+
+  _updateWeaponSway() {
+    const model = this.weaponModels[this.weapon];
+    if (!model) return;
+    const base = this.weaponBasePos[this.weapon] || { x: 0.2, y: -0.28, z: -0.38 };
+    const t = Date.now() * 0.001;
+
+    // Moving = keys held and on ground
+    const moving = this.alive && this.clientOnGround && (
+      this.keys['KeyW'] || this.keys['KeyS'] || this.keys['KeyA'] || this.keys['KeyD']
+    );
+
+    if (moving) this.walkCycle += 0.11;
+
+    // Walk bob
+    const bobX = moving ? Math.sin(this.walkCycle) * 0.013 : 0;
+    const bobY = moving ? Math.abs(Math.sin(this.walkCycle * 2)) * -0.009 : 0;
+
+    // Idle sway (gentle breathing)
+    const idleX = Math.sin(t * 0.7) * 0.0018;
+    const idleY = Math.sin(t * 1.1) * 0.0012;
+
+    // Mouse look sway (lags behind camera rotation)
+    const mouseSwayX = -this.mouse.dx * 0.00025;
+    const mouseSwayY = -this.mouse.dy * 0.00025;
+
+    const targetX = base.x + idleX + bobX + mouseSwayX;
+    const targetY = base.y + idleY + bobY + mouseSwayY;
+
+    // Smooth lerp
+    this.swayX += (targetX - this.swayX) * 0.12;
+    this.swayY += (targetY - this.swayY) * 0.12;
+
+    model.position.x = this.swayX;
+    model.position.y = this.swayY;
   }
 
   _processInput(now) {
@@ -1419,6 +1599,15 @@ class FPSGame {
       if (len > 0 && this.clientOnGround) {
         const bob = Math.sin(now * 0.008) * 0.025;
         this.camera.position.y += bob;
+
+        // Footstep dust every ~0.55s
+        this.footstepTimer += 16;
+        if (this.footstepTimer > 550) {
+          this.footstepTimer = 0;
+          this._spawnFootstepDust();
+        }
+      } else {
+        this.footstepTimer = 0;
       }
     }
   }
