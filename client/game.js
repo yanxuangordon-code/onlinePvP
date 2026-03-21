@@ -190,7 +190,12 @@ class FPSGame {
         base + 'soldier_' + side + '.glb',
         (gltf) => {
           const model = gltf.scene;
-          model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+          const soldierCol = side === 'ct' ? 0x3366cc : 0xcc3322;
+          model.traverse(c => {
+            if (c.isMesh) {
+              c.material = new THREE.MeshLambertMaterial({ color: soldierCol, flatShading: true });
+            }
+          });
           this.soldierModels[side] = model;
           console.log('[HYPERFIRE] Loaded soldier_' + side + '.glb');
           // Swap any already-spawned remote players to use the new model
@@ -249,7 +254,11 @@ class FPSGame {
           model.rotation.set(0, Math.PI, 0);
           const bp = basePos[name] || { x: 0.2, y: -0.28, z: -0.38 };
           model.position.set(bp.x, bp.y, bp.z);
-          model.traverse(c => { if (c.isMesh) { c.castShadow = false; c.receiveShadow = false; } });
+          model.traverse(c => {
+            if (c.isMesh) {
+              c.material = new THREE.MeshLambertMaterial({ color: c.material.color || 0x333333, flatShading: true });
+            }
+          });
 
           // Hide all then swap in camera
           const old = this.weaponModels[name];
@@ -270,27 +279,37 @@ class FPSGame {
   // ---- Renderer ----
 
   _initRenderer() {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    // Krunker-style: no antialias, no shadows — pixelation handles the look
+    this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.shadowMap.enabled = false;
+    this.renderer.setPixelRatio(1);
     this.renderer.outputEncoding = THREE.sRGBEncoding;
     document.getElementById('gameCanvas').appendChild(this.renderer.domElement);
+
+    // Pixelation: render at 50% resolution then upscale with nearest-neighbor (exact Krunker default)
+    const pw = Math.floor(window.innerWidth * 0.5);
+    const ph = Math.floor(window.innerHeight * 0.5);
+    this.pixelRT = new THREE.WebGLRenderTarget(pw, ph, {
+      minFilter: THREE.NearestFilter,
+      magFilter: THREE.NearestFilter,
+      depthBuffer: true,
+      stencilBuffer: false,
+    });
+
+    // Full-screen quad to blit low-res RT onto the screen
+    this.pixelScene = new THREE.Scene();
+    this.pixelCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    this.pixelQuadMat = new THREE.MeshBasicMaterial({ map: this.pixelRT.texture });
+    this.pixelScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.pixelQuadMat));
 
     window.addEventListener('resize', () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
-      if (this.composer) this.composer.setSize(window.innerWidth, window.innerHeight);
-      if (this.fxaaPass) {
-        const pr = Math.min(window.devicePixelRatio, 2);
-        this.fxaaPass.material.uniforms['resolution'].value.set(
-          1 / (window.innerWidth * pr), 1 / (window.innerHeight * pr)
-        );
-      }
+      const pw = Math.floor(window.innerWidth * 0.5);
+      const ph = Math.floor(window.innerHeight * 0.5);
+      if (this.pixelRT) this.pixelRT.setSize(pw, ph);
     });
   }
 
@@ -304,12 +323,13 @@ class FPSGame {
   }
 
   _buildGunModel() {
-    const dark   = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.5, metalness: 0.7 });
-    const metal  = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.4, metalness: 0.8 });
-    const metal2 = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.45, metalness: 0.75 });
-    const wood   = new THREE.MeshStandardMaterial({ color: 0x5d3a1a, roughness: 0.9, metalness: 0.0 });
-    const blk    = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.3, metalness: 0.9 });
-    const tan    = new THREE.MeshStandardMaterial({ color: 0x8b7355, roughness: 0.85, metalness: 0.0 });
+    const wflat  = (col) => new THREE.MeshLambertMaterial({ color: col, flatShading: true });
+    const dark   = wflat(0x222222);
+    const metal  = wflat(0x333333);
+    const metal2 = wflat(0x444444);
+    const wood   = wflat(0x5d3a1a);
+    const blk    = wflat(0x111111);
+    const tan    = wflat(0x8b7355);
 
     const box = (w, h, d, mat) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || metal);
     const addParts = (group, parts) => { parts.forEach(([m, px, py, pz]) => { m.position.set(px, py, pz); group.add(m); }); };
@@ -417,296 +437,51 @@ class FPSGame {
 
   _initScene() {
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x0d1a26, 0.007);
-
-    // Gradient sky sphere
-    const skyGeo = new THREE.SphereGeometry(490, 32, 16);
-    const skyMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uTop:     { value: new THREE.Color(0x060d18) },
-        uHorizon: { value: new THREE.Color(0x0d1e30) },
-        uGlow:    { value: new THREE.Color(0x112233) },
-      },
-      vertexShader: `
-        varying vec3 vPos;
-        void main() { vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
-      `,
-      fragmentShader: `
-        uniform vec3 uTop; uniform vec3 uHorizon; uniform vec3 uGlow;
-        varying vec3 vPos;
-        void main() {
-          float h = normalize(vPos).y;
-          vec3 col = mix(uGlow, uHorizon, smoothstep(-0.15, 0.05, h));
-          col = mix(col, uTop, smoothstep(0.05, 0.6, h));
-          gl_FragColor = vec4(col, 1.0);
-        }
-      `,
-      side: THREE.BackSide,
-      depthWrite: false,
-    });
-    this.scene.add(new THREE.Mesh(skyGeo, skyMat));
+    // Krunker: bright sky-blue background + short linear fog matching sky color
+    this.scene.background = new THREE.Color(0x7ec8e3);
+    this.scene.fog = new THREE.Fog(0x7ec8e3, 40, 130);
   }
 
   _initLights() {
-    // Indoor arena — no direct sun, lit by ceiling fixtures
-    const ambient = new THREE.AmbientLight(0x303848, 0.9);
+    // Krunker: bright flat lighting — strong ambient + directional sun
+    const ambient = new THREE.AmbientLight(0xffffff, 0.8);
     this.scene.add(ambient);
 
-    // Soft overhead fill (simulates ceiling bounce, no shadows)
-    const overhead = new THREE.DirectionalLight(0xc8d8f0, 0.7);
-    overhead.position.set(0, 10, 0);
-    overhead.castShadow = true;
-    overhead.shadow.mapSize.width = 2048;
-    overhead.shadow.mapSize.height = 2048;
-    overhead.shadow.camera.near = 1;
-    overhead.shadow.camera.far = 100;
-    overhead.shadow.camera.left = -60;
-    overhead.shadow.camera.right = 60;
-    overhead.shadow.camera.top = 60;
-    overhead.shadow.camera.bottom = -60;
-    overhead.shadow.bias = -0.0003;
-    this.scene.add(overhead);
+    // Main sun (top-right, harsh directional — gives flat Krunker look)
+    const sun = new THREE.DirectionalLight(0xfff8e8, 1.0);
+    sun.position.set(40, 80, 30);
+    this.scene.add(sun);
 
-    // CT base — cool blue accent
-    const ctLight = new THREE.PointLight(0x3366cc, 1.4, 30);
-    ctLight.position.set(0, 5, -38);
-    this.scene.add(ctLight);
-
-    // T base — warm red accent
-    const tLight = new THREE.PointLight(0xcc3311, 1.4, 30);
-    tLight.position.set(0, 5, 38);
-    this.scene.add(tLight);
-
-    // Mid ceiling fill lights (match strip positions)
-    const fills = [
-      [0, 5.5, 0, 0xd0e0f0, 0.9, 22],
-      [-20, 5.5, -15, 0xc8d4e8, 0.7, 18],
-      [ 20, 5.5, -15, 0xc8d4e8, 0.7, 18],
-      [-20, 5.5,  15, 0xd0c8e0, 0.7, 18],
-      [ 20, 5.5,  15, 0xd0c8e0, 0.7, 18],
-    ];
-    for (const [x, y, z, col, intensity, dist] of fills) {
-      const l = new THREE.PointLight(col, intensity, dist);
-      l.position.set(x, y, z);
-      this.scene.add(l);
-    }
+    // Soft fill from opposite side (no harsh shadows on faces)
+    const fill = new THREE.DirectionalLight(0xd0e8ff, 0.4);
+    fill.position.set(-30, 40, -20);
+    this.scene.add(fill);
   }
 
   _initPostProcessing() {
-    if (typeof THREE.EffectComposer === 'undefined') return; // CDN not loaded
-
-    const composer = new THREE.EffectComposer(this.renderer);
-    composer.addPass(new THREE.RenderPass(this.scene, this.camera));
-
-    // Bloom — subtle glow on emissive strips and muzzle flash
-    this.bloomPass = new THREE.UnrealBloomPass(
-      new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.28,  // strength (was 0.5 — much more subtle)
-      0.45,  // radius
-      0.88   // threshold (was 0.80 — only brightest emissives bloom)
-    );
-    composer.addPass(this.bloomPass);
-
-    // Vignette + subtle color grade
-    const vignetteShader = {
-      uniforms: { tDiffuse: { value: null } },
-      vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
-      fragmentShader: `
-        uniform sampler2D tDiffuse; varying vec2 vUv;
-        void main(){
-          vec4 c = texture2D(tDiffuse, vUv);
-          // Vignette
-          vec2 uv = vUv - 0.5;
-          float v = smoothstep(0.75, 0.25, length(uv) * 1.4);
-          c.rgb *= mix(0.35, 1.0, v);
-          // ACE-style lift + slight desaturate in shadows
-          float luma = dot(c.rgb, vec3(0.299,0.587,0.114));
-          c.rgb = mix(c.rgb, vec3(luma), 0.08 * (1.0 - luma));
-          gl_FragColor = c;
-        }
-      `,
-    };
-    composer.addPass(new THREE.ShaderPass(vignetteShader));
-
-    // FXAA — smooth edges (always last)
-    const fxaaPass = new THREE.ShaderPass(THREE.FXAAShader);
-    const pr = Math.min(window.devicePixelRatio, 2);
-    fxaaPass.material.uniforms['resolution'].value.set(
-      1 / (window.innerWidth * pr), 1 / (window.innerHeight * pr)
-    );
-    this.fxaaPass = fxaaPass;
-    composer.addPass(fxaaPass);
-
-    this.composer = composer;
+    // Pixelation is handled directly in _animate() via pixelRT — no composer needed
   }
 
   _buildMap() {
     const self = this;
 
-    // ---- CDN texture loader (real images — brick, crate, metal) ----
-    const loader = new THREE.TextureLoader();
-    loader.crossOrigin = 'anonymous';
-    const CDN = 'https://raw.githubusercontent.com/mrdoob/three.js/r128/examples/textures/';
+    // ---- Krunker flat-shaded material palette ----
+    // No textures — solid colors with flatShading for the iconic Krunker look
+    const flat = (col) => new THREE.MeshLambertMaterial({ color: col, flatShading: true });
 
-    function cdnTex(path, repeatS, repeatT) {
-      const t = loader.load(CDN + path);
-      t.wrapS = t.wrapT = THREE.RepeatWrapping;
-      t.repeat.set(repeatS || 1, repeatT || 1);
-      return t;
-    }
-
-    // Real brick texture for walls (gray-tinted = concrete)
-    const brickDiff = cdnTex('brick_diffuse.jpg', 4, 2);
-    const brickBump = cdnTex('brick_bump.jpg',    4, 2);
-    // Real wood crate
-    const crateDiff = cdnTex('crate.gif', 1, 1);
-
-    // ---- Procedural fallback / supplementary textures ----
-    function makeTex(size, drawFn) {
-      const canvas = document.createElement('canvas');
-      canvas.width = size; canvas.height = size;
-      drawFn(canvas.getContext('2d'), size);
-      const tex = new THREE.CanvasTexture(canvas);
-      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-      return tex;
-    }
-
-    // Concrete block wall (realistic mortar seams + noise)
-    const wallTex = makeTex(512, (ctx, S) => {
-      ctx.fillStyle = '#8c8880'; ctx.fillRect(0, 0, S, S);
-      const bW = 128, bH = 56;
-      for (let row = 0; row < Math.ceil(S / bH) + 1; row++) {
-        const off = (row % 2) * (bW / 2);
-        for (let col = -1; col < Math.ceil(S / bW) + 1; col++) {
-          const bx = col * bW + off, by = row * bH;
-          const vari = Math.random() * 18 - 9;
-          const base = 140 + vari;
-          ctx.fillStyle = `rgb(${base - 3|0},${base - 5|0},${base - 12|0})`;
-          ctx.fillRect(bx + 3, by + 3, bW - 6, bH - 6);
-          // micro noise
-          for (let n = 0; n < 30; n++) {
-            const nv = Math.random() * 14 - 7;
-            ctx.fillStyle = `rgba(${nv>0?255:0},${nv>0?255:0},${nv>0?255:0},${Math.abs(nv)/90})`;
-            ctx.fillRect(bx + 3 + Math.random()*(bW-8), by + 3 + Math.random()*(bH-8), 3, 3);
-          }
-        }
-      }
-      // Mortar seams
-      ctx.strokeStyle = '#5a574e'; ctx.lineWidth = 6;
-      for (let row = 0; row <= Math.ceil(S/bH)+1; row++) { ctx.beginPath(); ctx.moveTo(0,row*bH); ctx.lineTo(S,row*bH); ctx.stroke(); }
-      for (let row = 0; row <= Math.ceil(S/bH)+1; row++) {
-        const off = (row%2)*(bW/2);
-        for (let col = 0; col <= Math.ceil(S/bW)+1; col++) { ctx.beginPath(); ctx.moveTo(col*bW+off,row*bH); ctx.lineTo(col*bW+off,(row+1)*bH); ctx.stroke(); }
-      }
-    });
-    wallTex.repeat.set(4, 2);
-
-    // Industrial concrete floor tiles
-    const floorTex = makeTex(512, (ctx, S) => {
-      ctx.fillStyle = '#686868'; ctx.fillRect(0, 0, S, S);
-      // Noise
-      for (let x = 0; x < S; x += 3) for (let y = 0; y < S; y += 3) {
-        const v = Math.random()*18-9;
-        ctx.fillStyle = `rgba(${v>0?255:0},${v>0?255:0},${v>0?255:0},${Math.abs(v)/110})`;
-        ctx.fillRect(x,y,3,3);
-      }
-      // Large tiles
-      const tileS = 128;
-      ctx.strokeStyle = '#4a4a4a'; ctx.lineWidth = 5;
-      for (let i=0;i<=S;i+=tileS){ ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,S);ctx.stroke(); ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(S,i);ctx.stroke(); }
-      // Inner tile highlight
-      ctx.strokeStyle = '#787878'; ctx.lineWidth = 1;
-      for (let tx=0;tx<S/tileS;tx++) for (let ty=0;ty<S/tileS;ty++) {
-        ctx.strokeRect(tx*tileS+5,ty*tileS+5,tileS-10,tileS-10);
-      }
-    });
-    floorTex.repeat.set(20, 20);
-
-    // Wood crate with planks + metal brackets
-    const boxTex = makeTex(256, (ctx, S) => {
-      for (let row = 0; row < 8; row++) {
-        const y = row * 32, off = (row%2)*128;
-        const wc = 90 + Math.floor(Math.random()*20);
-        ctx.fillStyle = `rgb(${wc+20},${wc},${wc-25})`; ctx.fillRect(0,y,S,30);
-        ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=1;
-        for (let g=0;g<5;g++){ ctx.beginPath();ctx.moveTo(0,y+g*6);ctx.lineTo(S,y+g*6+Math.random()*2);ctx.stroke(); }
-        ctx.strokeStyle='#3a1a00'; ctx.lineWidth=3;
-        ctx.beginPath();ctx.moveTo(0,y+30);ctx.lineTo(S,y+30);ctx.stroke();
-        ctx.beginPath();ctx.moveTo(off+128,y);ctx.lineTo(off+128,y+30);ctx.stroke();
-      }
-      // Metal corner brackets
-      ctx.fillStyle='#555';
-      [[0,0],[S,0],[0,S],[S,S],[S/2,0],[S/2,S],[0,S/2],[S,S/2]].forEach(([x,y])=>{
-        ctx.fillRect(x-5,y-2,10,4); ctx.fillRect(x-2,y-5,4,10);
-      });
-    });
-    boxTex.repeat.set(1, 1);
-
-    // Dark metal ceiling with panel lines
-    const ceilTex = makeTex(256, (ctx, S) => {
-      ctx.fillStyle = '#2e3238'; ctx.fillRect(0, 0, S, S);
-      for (let x=0;x<S;x+=4) for (let y=0;y<S;y+=4) {
-        const v=Math.random()*6-3; ctx.fillStyle=`rgba(${v>0?255:0},${v>0?255:0},${v>0?255:0},${Math.abs(v)/100})`; ctx.fillRect(x,y,4,4);
-      }
-      ctx.strokeStyle='#1a1e22'; ctx.lineWidth=4;
-      for (let i=0;i<=S;i+=64){ ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,S);ctx.stroke(); ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(S,i);ctx.stroke(); }
-      // Rivets
-      ctx.fillStyle='#4a4e52';
-      [[10,10],[54,10],[10,54],[54,54],[10,138],[54,138],[10,182],[54,182],[138,10],[182,10],[138,54],[182,54],[138,138],[182,138],[138,182],[182,182]].forEach(([x,y])=>{
-        ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fill();
-      });
-    });
-    ceilTex.repeat.set(8, 8);
-
-    // CT spawn zone - tactical blue with directional arrows
-    const ctTex = makeTex(256, (ctx, S) => {
-      ctx.fillStyle='#091830'; ctx.fillRect(0,0,S,S);
-      ctx.strokeStyle='rgba(30,80,200,0.25)'; ctx.lineWidth=1;
-      for (let i=0;i<=S;i+=24){ ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,S);ctx.stroke(); ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(S,i);ctx.stroke(); }
-      ctx.fillStyle='rgba(40,100,220,0.35)';
-      [64,192].forEach(cy=>{
-        ctx.beginPath(); ctx.moveTo(88,cy-22); ctx.lineTo(168,cy); ctx.lineTo(88,cy+22); ctx.lineTo(108,cy); ctx.closePath(); ctx.fill();
-      });
-      // CT text watermark
-      ctx.fillStyle='rgba(60,130,255,0.12)'; ctx.font='bold 64px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('CT',S/2,S/2);
-    });
-    ctTex.repeat.set(2, 2);
-
-    // T spawn zone - tactical red
-    const tTex = makeTex(256, (ctx, S) => {
-      ctx.fillStyle='#1e0808'; ctx.fillRect(0,0,S,S);
-      ctx.strokeStyle='rgba(200,30,30,0.25)'; ctx.lineWidth=1;
-      for (let i=0;i<=S;i+=24){ ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,S);ctx.stroke(); ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(S,i);ctx.stroke(); }
-      ctx.fillStyle='rgba(220,40,40,0.35)';
-      [64,192].forEach(cy=>{
-        ctx.beginPath(); ctx.moveTo(168,cy-22); ctx.lineTo(88,cy); ctx.lineTo(168,cy+22); ctx.lineTo(148,cy); ctx.closePath(); ctx.fill();
-      });
-      ctx.fillStyle='rgba(255,60,60,0.12)'; ctx.font='bold 64px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('T',S/2,S/2);
-    });
-    tTex.repeat.set(2, 2);
-
-    const std = (map, col, rough, metal, bump) => {
-      const m = new THREE.MeshStandardMaterial({ map, color: col||0xffffff, roughness: rough!==undefined?rough:0.85, metalness: metal||0 });
-      if (bump) { m.bumpMap = bump; m.bumpScale = 0.4; }
-      return m;
-    };
-
-    // Use real CDN textures for walls + crates; keep procedural for floor/ceiling/spawns
-    const wallMat       = std(brickDiff, 0xaaaaaa, 0.9, 0.02, brickBump); // gray-tinted brick = concrete
-    const floorMat      = std(floorTex, 0xffffff, 0.85, 0.05);
-    const ceilMat       = std(ceilTex,  0xffffff, 0.6,  0.3);
-    const boxMat        = std(crateDiff, 0xffffff, 0.95, 0.0);
-    const concreteMat   = new THREE.MeshStandardMaterial({ color: 0x7a7874, roughness: 0.9, metalness: 0.0 });
-    const concreteMatDk = new THREE.MeshStandardMaterial({ color: 0x575450, roughness: 0.9, metalness: 0.0 });
-    const metalMat      = new THREE.MeshStandardMaterial({ color: 0x555a60, roughness: 0.4, metalness: 0.7 });
-    const ctWallMat     = new THREE.MeshStandardMaterial({ color: 0x1a3a88, roughness: 0.7, metalness: 0.15, emissive: 0x0a1a44, emissiveIntensity: 0.3 });
-    const tWallMat      = new THREE.MeshStandardMaterial({ color: 0x882222, roughness: 0.7, metalness: 0.15, emissive: 0x440a0a, emissiveIntensity: 0.3 });
+    const wallMat       = flat(0xb8b8b0);   // light gray walls
+    const floorMat      = flat(0xc8c0a8);   // warm light gray floor
+    const ceilMat       = flat(0x909090);   // slightly darker ceiling
+    const boxMat        = flat(0xb8824a);   // Krunker tan/wood crates
+    const concreteMat   = flat(0x8c8c80);   // concrete gray
+    const concreteMatDk = flat(0x686860);   // darker concrete
+    const metalMat      = flat(0x707880);   // muted steel blue-gray
+    const ctWallMat     = flat(0x2255cc);   // CT blue
+    const tWallMat      = flat(0xcc2222);   // T red
 
     function addBox(x, y, z, w, h, d, mat) {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || boxMat);
       mesh.position.set(x, y, z);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
       self.scene.add(mesh);
       return mesh;
     }
@@ -714,7 +489,6 @@ class FPSGame {
     // ---- Floor ----
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), floorMat);
     floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true;
     self.scene.add(floor);
 
     // ---- Ceiling ----
@@ -722,7 +496,6 @@ class FPSGame {
     const ceil = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), ceilMat);
     ceil.rotation.x = Math.PI / 2;
     ceil.position.y = wallH;
-    ceil.receiveShadow = true;
     self.scene.add(ceil);
 
     // ---- Boundary walls ----
@@ -733,12 +506,12 @@ class FPSGame {
       { pos: [ 50, wallH/2, 0], size: [0.5, wallH, 100] },
     ]) {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(...w.size), wallMat);
-      mesh.position.set(...w.pos); mesh.castShadow = true; mesh.receiveShadow = true;
+      mesh.position.set(...w.pos);
       self.scene.add(mesh);
     }
 
-    // ---- Wall base trim (metal strip at floor level) ----
-    const trimMat = new THREE.MeshStandardMaterial({ color: 0x3a3e44, roughness: 0.4, metalness: 0.8 });
+    // ---- Wall base trim ----
+    const trimMat = flat(0x505058);
     for (const w of [
       { pos: [0, 0.08, -49.8], size: [100, 0.16, 0.12] },
       { pos: [0, 0.08,  49.8], size: [100, 0.16, 0.12] },
@@ -750,44 +523,37 @@ class FPSGame {
     }
 
     // ---- Ceiling light strips ----
-    const lightStripMat = new THREE.MeshStandardMaterial({
-      color: 0xffffff, emissive: new THREE.Color(0xc8dcf0), emissiveIntensity: 1.8,
-      roughness: 0.5, metalness: 0.3
-    });
-    const lightHousingMat = new THREE.MeshStandardMaterial({ color: 0x2a2e34, roughness: 0.5, metalness: 0.6 });
+    const lightStripMat = flat(0xeeeeff);
+    const lightHousingMat = flat(0x505055);
     const stripPositions = [
       [0, 0], [-20, -15], [20, -15], [-20, 15], [20, 15],
       [0, -30], [0, 30], [-10, 0], [10, 0],
     ];
     for (const [sx, sz] of stripPositions) {
-      // Housing box
       const housing = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.1, 2.5), lightHousingMat);
       housing.position.set(sx, wallH - 0.05, sz);
       self.scene.add(housing);
-      // Emissive strip
       const strip = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 2.2), lightStripMat);
       strip.position.set(sx, wallH - 0.07, sz);
       self.scene.add(strip);
     }
 
     // ---- Ceiling support beams ----
-    const beamMat = new THREE.MeshStandardMaterial({ color: 0x3a3f4a, roughness: 0.45, metalness: 0.65 });
-    // Cross beams (X-axis)
+    const beamMat = flat(0x585860);
     for (let z = -40; z <= 40; z += 20) {
       addBox(0, wallH - 0.35, z, 100, 0.5, 0.4, beamMat);
     }
-    // Longitudinal beams (Z-axis)
     for (let x = -40; x <= 40; x += 20) {
       addBox(x, wallH - 0.25, 0, 0.4, 0.35, 100, beamMat);
     }
 
     // ---- CT spawn zone ----
-    const ctSpawn = new THREE.Mesh(new THREE.PlaneGeometry(22, 14), std(ctTex));
+    const ctSpawn = new THREE.Mesh(new THREE.PlaneGeometry(22, 14), flat(0x2244aa));
     ctSpawn.rotation.x = -Math.PI/2; ctSpawn.position.set(0, 0.01, -41);
     self.scene.add(ctSpawn);
 
     // ---- T spawn zone ----
-    const tSpawn = new THREE.Mesh(new THREE.PlaneGeometry(22, 14), std(tTex));
+    const tSpawn = new THREE.Mesh(new THREE.PlaneGeometry(22, 14), flat(0xaa2222));
     tSpawn.rotation.x = -Math.PI/2; tSpawn.position.set(0, 0.01, 41);
     self.scene.add(tSpawn);
 
@@ -866,51 +632,40 @@ class FPSGame {
     addBox( 18, 1.8,  10, 1.2,  1.0, 1.2);
 
     // ---- Support pillars (structural, near walls) ----
-    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x4a4e54, roughness: 0.5, metalness: 0.5 });
+    const pillarMat = flat(0x686870);
     for (const [px,pz] of [[-40,-40],[-40,40],[40,-40],[40,40],[-40,0],[40,0],[0,-40],[0,40]]) {
       addBox(px, wallH/2, pz, 0.6, wallH, 0.6, pillarMat);
-      // Base plate
       addBox(px, 0.06, pz, 1.0, 0.12, 1.0, metalMat);
-      // Cap plate
       addBox(px, wallH-0.06, pz, 0.9, 0.12, 0.9, metalMat);
     }
 
     // ---- Site markers (A/B) ----
-    function makeSiteTex(letter) {
+    for (const [x,letter] of [[-20,'A'],[20,'B']]) {
       const c = document.createElement('canvas'); c.width = 256; c.height = 256;
       const ctx = c.getContext('2d');
-      ctx.fillStyle = 'rgba(220,200,20,0.85)'; ctx.fillRect(0,0,256,256);
-      // inner lighter area
-      ctx.fillStyle = 'rgba(255,240,60,0.5)'; ctx.fillRect(12,12,232,232);
+      ctx.fillStyle = '#ddc820'; ctx.fillRect(0,0,256,256);
       ctx.fillStyle = '#1a1a00'; ctx.font = 'bold 140px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
       ctx.fillText(letter, 128, 128);
-      ctx.strokeStyle = '#888800'; ctx.lineWidth = 8; ctx.strokeRect(6,6,244,244);
-      return new THREE.CanvasTexture(c);
-    }
-    for (const [x,letter] of [[-20,'A'],[20,'B']]) {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(7, 7),
-        new THREE.MeshStandardMaterial({ map: makeSiteTex(letter), roughness: 0.8, emissive: 0x333300, emissiveIntensity: 0.4 }));
+        new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(c) }));
       m.rotation.x = -Math.PI/2; m.position.set(x, 0.02, 0);
       self.scene.add(m);
     }
 
     // ---- Barrel props (decorative) ----
-    const barrelMat = new THREE.MeshStandardMaterial({ color: 0x3a5a2a, roughness: 0.6, metalness: 0.4 });
-    const barrelGeo = new THREE.CylinderGeometry(0.3, 0.28, 0.9, 10);
-    const barrelRingMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.3, metalness: 0.8 });
-    const barrelRingGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.06, 10);
+    const barrelMat = flat(0x3a6a28);
+    const barrelGeo = new THREE.CylinderGeometry(0.3, 0.28, 0.9, 8);
+    const barrelRingMat = flat(0x808080);
+    const barrelRingGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.06, 8);
     for (const [bx, bz] of [[-12,-18],[12,18],[-12,18],[12,-18],[0,-22],[0,22]]) {
       const barrel = new THREE.Mesh(barrelGeo, barrelMat);
-      barrel.position.set(bx, 0.45, bz); barrel.castShadow = true; barrel.receiveShadow = true;
+      barrel.position.set(bx, 0.45, bz);
       self.scene.add(barrel);
       const ring1 = new THREE.Mesh(barrelRingGeo, barrelRingMat);
       ring1.position.set(bx, 0.72, bz); self.scene.add(ring1);
       const ring2 = new THREE.Mesh(barrelRingGeo, barrelRingMat);
       ring2.position.set(bx, 0.18, bz); self.scene.add(ring2);
     }
-
-    // ---- Fog (indoor — tight) ----
-    this.scene.fog = new THREE.Fog(0x1a2030, 60, 140);
   }
 
   // ---- Input ----
@@ -1752,11 +1507,11 @@ class FPSGame {
 
     this._updateWeaponSway();
 
-    if (this.composer) {
-      this.composer.render();
-    } else {
-      this.renderer.render(this.scene, this.camera);
-    }
+    // Krunker pixelation: render scene to low-res RT, then blit to screen with nearest-neighbor
+    this.renderer.setRenderTarget(this.pixelRT);
+    this.renderer.render(this.scene, this.camera);
+    this.renderer.setRenderTarget(null);
+    this.renderer.render(this.pixelScene, this.pixelCamera);
   }
 
   _updateWeaponSway() {
