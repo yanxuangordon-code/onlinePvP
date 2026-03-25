@@ -6,6 +6,7 @@
     <title>Unity Web Player | OnlinePvP</title>
     <link rel="shortcut icon" href="TemplateData/favicon.ico">
     <link rel="stylesheet" href="TemplateData/style.css">
+  <script src="TemplateData/profiler.js"></script>
   </head>
   <body>
     <div id="unity-container" class="unity-desktop">
@@ -57,18 +58,12 @@
         arguments: [],
         dataUrl: buildUrl + "/WebBuild.data",
         frameworkUrl: buildUrl + "/WebBuild.framework.js",
-        codeUrl: buildUrl + "/WebBuild.wasm",
+        codeUrl: buildUrl + "/WebBuild.wasm",  // replaced below with blob from parts
         streamingAssetsUrl: "StreamingAssets",
         companyName: "DefaultCompany",
         productName: "OnlinePvP",
         productVersion: "0.1.0",
         showBanner: unityShowBanner,
-        // errorHandler: function(err, url, line) {
-        //    alert("error " + err + " occurred at line " + line);
-        //    // Return 'true' if you handled this error and don't want Unity
-        //    // to process it further, 'false' otherwise.
-        //    return true;
-        // },
       };
 
       // By default, Unity keeps WebGL canvas render target size matched with
@@ -110,23 +105,78 @@
 
       document.querySelector("#unity-loading-bar").style.display = "block";
 
-      var script = document.createElement("script");
-      script.src = loaderUrl;
-      script.onload = () => {
-        createUnityInstance(canvas, config, (progress) => {
-          document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
-              }).then((unityInstance) => {
+      // Reassemble split .wasm parts into a single Blob URL before starting Unity
+      function startUnity() {
+        var script = document.createElement("script");
+        script.src = loaderUrl;
+        script.onload = () => {
+          createUnityInstance(canvas, config, (progress) => {
+            document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
+          }).then((unityInstance) => {
                 document.querySelector("#unity-loading-bar").style.display = "none";
                 document.querySelector("#unity-fullscreen-button").onclick = () => {
                   unityInstance.SetFullscreen(1);
                 };
 
-              }).catch((message) => {
+                var profile = unityProfiler.createButton(unityInstance);
+                profile.style.marginLeft = '5px';
+                document.querySelector("#unity-build-title").appendChild(profile);
+
+                // Unloading web content from DOM so that browser GC can run can be tricky to get right.
+                // This code snippet shows how to correctly implement a Unity content Unload mechanism to a web page.
+
+                // Unloading Unity content enables a web page to reclaim the memory used by Unity, e.g. for
+                // the purpose of later loading another Unity content instance on the _same_ web page.
+
+                // When using this functionality, take caution to carefully make sure to clear all JavaScript code,
+                // DOM element and event handler references to the old content you may have retained, or
+                // otherwise the browser's garbage collector will be unable to reclaim the old page.
+
+                // N.b. Unity content does _not_ need to be manually unloaded when the user is navigating away from
+                // the current page to another web page. The browser will take care to clear memory of old visited
+                // pages automatically. This functionality is only needed if you want to switch between loading
+                // multiple Unity builds on a single web page.
+                var quit = document.createElement("button");
+                quit.style = "margin-left: 5px; background-color: lightgray; border: none; padding: 5px; cursor: pointer";
+                quit.innerHTML = "Unload";
+                document.querySelector("#unity-build-title").appendChild(quit);
+                quit.onclick = () => {
+                  // Quit Unity application execution
+                  unityInstance.Quit().then(() => {
+                    unityProfiler.shutDown();
+                    // Remove DOM elements from the page so GC can run
+                    document.querySelector("#unity-container").remove();
+                    canvas = null;
+                    // Remover script elements from the page so GC can run
+                    script.remove();
+                    script = null;
+                  });
+                };
+          }).catch((message) => {
                 alert(message);
               });
-            };
+        };
+        document.body.appendChild(script);
+      }
 
-      document.body.appendChild(script);
+      // Fetch the two .wasm chunks in parallel, concatenate, create a Blob URL
+      Promise.all([
+        fetch(buildUrl + "/WebBuild.wasm.partaa").then(function(r){ return r.arrayBuffer(); }),
+        fetch(buildUrl + "/WebBuild.wasm.partab").then(function(r){ return r.arrayBuffer(); })
+      ]).then(function(parts) {
+        var a = new Uint8Array(parts[0]);
+        var b = new Uint8Array(parts[1]);
+        var combined = new Uint8Array(a.length + b.length);
+        combined.set(a, 0);
+        combined.set(b, a.length);
+        var blob = new Blob([combined], { type: "application/wasm" });
+        config.codeUrl = URL.createObjectURL(blob);
+        startUnity();
+      }).catch(function(e) {
+        console.error("Failed to load wasm parts: " + e);
+        // Fall back to direct wasm (will fail if >100MB, but worth trying)
+        startUnity();
+      });
 
     </script>
   </body>
